@@ -24,7 +24,7 @@ import pandas as pd
 
 from . import metrics
 from .config import (PROCESSED, REPORTING_LAG_DAYS_INDEX, REPORTING_LAG_DAYS_PIT,
-                     STAT_WINDOW, SYMBOL_IBOV, SYMBOL_SPX)
+                     STAT_WINDOW)
 from .sources import b3, cvm, prices, shiller, spdji
 
 logging.basicConfig(level=logging.INFO,
@@ -75,9 +75,10 @@ def build_spx(status: Status) -> pd.DataFrame:
 
     st = Stage("precos_spx")
     try:
-        px = prices.fetch_index_close(SYMBOL_SPX)
+        px, provedor = prices.fetch_index_close("spx")
         out["preco"] = px
         st.ok, st.obs = True, len(px)
+        st.detalhe = f"provedor: {provedor}"
         st.inicio, st.fim = str(px.index.min().date()), str(px.index.max().date())
     except Exception as exc:  # noqa: BLE001
         st.detalhe = str(exc)
@@ -135,9 +136,10 @@ def build_ibov(status: Status):
 
     st = Stage("precos_ibov")
     try:
-        px = prices.fetch_index_close(SYMBOL_IBOV)
+        px, provedor = prices.fetch_index_close("ibov")
         out["preco"] = px
         st.ok, st.obs = True, len(px)
+        st.detalhe = f"provedor: {provedor}"
         st.inicio, st.fim = str(px.index.min().date()), str(px.index.max().date())
     except Exception as exc:  # noqa: BLE001
         st.detalhe = str(exc)
