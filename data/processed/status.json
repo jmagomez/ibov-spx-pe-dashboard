@@ -1,22 +1,56 @@
 {
-  "gerado_em_utc": "2026-08-08T21:45:21+00:00",
+  "gerado_em_utc": "2026-08-08T23:00:04+00:00",
   "estagios": [
     {
       "nome": "precos_spx",
-      "ok": false,
-      "detalhe": "spx: nenhum provedor respondeu. yahoo: https://query1.finance.yahoo.com/v8/finance/chart/%5EGSPC?period1=0&period2=9999999999&interval=1d indisponivel apos 3 tentativas: 429 Client Error: Too Many Requests for url: https://query1.finance.yahoo.com/v8/finance/chart/%5EGSPC?period1=0&period2=9999999999&interval=1d | stooq: layout inesperado do Stooq para ^spx: colunas=['<!DOCTYPE html><html><head><meta charset=\"utf-8\"><meta name=\"robots\" content=\"noindex', 'nofollow\"></head><body><noscript>This site requires JavaScript to verify your browser. Please enable JavaScript and reload.</noscript><script nonce=\"kvJ73kFfHmtKw9VEtF_dvQ\">']",
-      "obs": 0,
+      "ok": true,
+      "detalhe": "provedor: yfinance; horizonte: 16.6 anos (4174 pregoes)",
+      "obs": 4174,
+      "inicio": "2010-01-04",
+      "fim": "2026-08-07"
+    },
+    {
+      "nome": "eps_spx",
+      "ok": true,
+      "detalhe": "fonte: planilha Shiller (coluna E, LPA 12m mensal) -- S&P DJI indisponivel",
+      "obs": 4174,
       "inicio": "",
       "fim": ""
     },
     {
+      "nome": "cape_shiller",
+      "ok": true,
+      "detalhe": "",
+      "obs": 177,
+      "inicio": "2010-01-01",
+      "fim": "2024-09-01"
+    },
+    {
       "nome": "precos_ibov",
+      "ok": true,
+      "detalhe": "provedor: yfinance; horizonte: 16.6 anos (4115 pregoes)",
+      "obs": 4115,
+      "inicio": "2010-01-04",
+      "fim": "2026-08-07"
+    },
+    {
+      "nome": "composicao_ibov_b3",
+      "ok": true,
+      "detalhe": "carteira VIGENTE (B3 nao publica historico aberto de composicao)",
+      "obs": 78,
+      "inicio": "",
+      "fim": ""
+    },
+    {
+      "nome": "lucros_cvm",
       "ok": false,
-      "detalhe": "ibov: nenhum provedor respondeu. yahoo: https://query1.finance.yahoo.com/v8/finance/chart/%5EBVSP?period1=0&period2=9999999999&interval=1d indisponivel apos 3 tentativas: 429 Client Error: Too Many Requests for url: https://query1.finance.yahoo.com/v8/finance/chart/%5EBVSP?period1=0&period2=9999999999&interval=1d | stooq: layout inesperado do Stooq para ^bvp: colunas=['<!DOCTYPE html><html><head><meta charset=\"utf-8\"><meta name=\"robots\" content=\"noindex', 'nofollow\"></head><body><noscript>This site requires JavaScript to verify your browser. Please enable JavaScript and reload.</noscript><script nonce=\"ysdCLOOxEWo519L1361x0g\">']",
+      "detalhe": "nenhum ano de DFP obtido. 2010: https://dados.cvm.gov.br/dados/CIA_ABERTA/DOC/DFP/DADOS/dfp_cia_aberta_2010.zip indisponivel apos 1 tentativas: HTTPSCon | 2011: https://dados.cvm.gov.br/dados/CIA_ABERTA/DOC/DFP/DADOS/dfp_cia_aberta_2011.zip indisponivel apos 1 tentativas: HTTPSCon | 2012: https://dados.cvm.gov.br/dados/CIA_ABERTA/DOC/DFP/DADOS/dfp_cia_aberta_2012.zip indisponivel apos 1 tentativas",
       "obs": 0,
       "inicio": "",
       "fim": ""
     }
   ],
-  "avisos": []
+  "avisos": [
+    "Sem lucros da CVM: a serie de valuation do IBOV nao foi construida. O portal da CVM nao respondeu a partir do runner -- ver ESTADO.md."
+  ]
 }
