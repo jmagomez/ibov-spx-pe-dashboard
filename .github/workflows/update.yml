@@ -1,0 +1,82 @@
+name: Atualizacao semanal
+
+# 12:00 UTC = 09:00 BRT. O Brasil nao adota horario de verao desde 2019
+# (Decreto 9.772/2019), entao o deslocamento UTC-3 e fixo o ano inteiro e o
+# cron nao precisa de ajuste sazonal.
+on:
+  schedule:
+    - cron: "0 12 * * 6"
+  workflow_dispatch:
+    inputs:
+      motivo:
+        description: "Motivo da execucao manual"
+        required: false
+        default: "verificacao"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: atualizacao
+  cancel-in-progress: false
+
+jobs:
+  atualizar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Testes das funcoes de calculo
+        run: pytest tests -q
+
+      - name: Coletar e processar
+        run: python -m src.build
+        continue-on-error: true
+
+      - name: Gerar dashboard
+        run: python -m src.render
+
+      - name: Resumo da execucao
+        if: always()
+        run: python tools/summary.py
+
+      - name: Publicar artefato
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dashboard-e-dados
+          path: |
+            docs/index.html
+            data/processed/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Commit dos resultados
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A data/processed docs
+          if git diff --staged --quiet; then
+            echo "Nada mudou nesta execucao."
+          else
+            git commit -m "dados: atualizacao automatica $(date -u +%Y-%m-%d)"
+            git push
+          fi
+
+      - name: Portao final
+        if: always()
+        run: python tools/gate.py
