@@ -4,3 +4,6 @@ requests==2.32.3
 openpyxl==3.1.5
 xlrd==2.0.1
 pytest==8.3.4
+# yfinance traz curl_cffi, que faz o handshake TLS se apresentar como navegador.
+# E essa camada, e nao o User-Agent, que costuma derrubar o 429 do Yahoo em CI.
+yfinance==1.5.2
