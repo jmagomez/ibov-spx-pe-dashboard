@@ -1,0 +1,22 @@
+{
+  "gerado_em_utc": "2026-08-08T21:38:28+00:00",
+  "estagios": [
+    {
+      "nome": "precos_spx",
+      "ok": false,
+      "detalhe": "layout inesperado do Stooq para ^spx: colunas=['<!DOCTYPE html><html><head><meta charset=\"utf-8\"><meta name=\"robots\" content=\"noindex', 'nofollow\"></head><body><noscript>This site requires JavaScript to verify your browser. Please enable JavaScript and reload.</noscript><script nonce=\"oy-ecPzp2Q-y7-EibadbAA\">']",
+      "obs": 0,
+      "inicio": "",
+      "fim": ""
+    },
+    {
+      "nome": "precos_ibov",
+      "ok": false,
+      "detalhe": "layout inesperado do Stooq para ^bvp: colunas=['<!DOCTYPE html><html><head><meta charset=\"utf-8\"><meta name=\"robots\" content=\"noindex', 'nofollow\"></head><body><noscript>This site requires JavaScript to verify your browser. Please enable JavaScript and reload.</noscript><script nonce=\"gBU2IVidrYp-KJCrrs0trw\">']",
+      "obs": 0,
+      "inicio": "",
+      "fim": ""
+    }
+  ],
+  "avisos": []
+}
