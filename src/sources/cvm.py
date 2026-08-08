@@ -31,6 +31,18 @@ CONTA_LUCRO = "3.11"
 CONTA_LUCRO_ALT = "3.09"  # fallback: resultado liquido das operacoes continuadas
 
 
+def _baixar(url: str) -> bytes:
+    """Download de um zip da CVM.
+
+    retries=1 e deliberado. Na execucao #4 o host se mostrou inalcancavel a
+    partir do runner ("Network is unreachable"), e a politica padrao de tres
+    tentativas com backoff consumiu cerca de tres minutos POR ANO -- quarenta
+    minutos de job para constatar em segundos que o host nao responde. Erro de
+    rede em host inalcancavel nao melhora com insistencia.
+    """
+    return get(url, retries=1, timeout=180, connect_timeout=10)
+
+
 def _read_zip_csv(content: bytes, name_contains: str) -> pd.DataFrame:
     with zipfile.ZipFile(io.BytesIO(content)) as zf:
         names = [n for n in zf.namelist() if name_contains in n and n.endswith(".csv")]
@@ -83,13 +95,13 @@ def _extract_profit(df: pd.DataFrame, freq: str) -> pd.DataFrame:
 def fetch_dfp_year(year: int) -> pd.DataFrame:
     """Lucro anual consolidado de todas as companhias, para um exercicio."""
     url = f"{CVM_DFP_BASE}dfp_cia_aberta_{year}.zip"
-    return _extract_profit(_read_zip_csv(get(url), "dre_con"), freq="A")
+    return _extract_profit(_read_zip_csv(_baixar(url), "dre_con"), freq="A")
 
 
 def fetch_itr_year(year: int) -> pd.DataFrame:
     """Lucro trimestral consolidado de todas as companhias, para um ano."""
     url = f"{CVM_ITR_BASE}itr_cia_aberta_{year}.zip"
-    return _extract_profit(_read_zip_csv(get(url), "dre_con"), freq="T")
+    return _extract_profit(_read_zip_csv(_baixar(url), "dre_con"), freq="T")
 
 
 def fetch_range(years: Iterable[int], kind: str) -> pd.DataFrame:
@@ -106,10 +118,10 @@ def fetch_range(years: Iterable[int], kind: str) -> pd.DataFrame:
             frames.append(fn(y))
             log.info("CVM %s %d: ok", kind, y)
         except Exception as exc:  # noqa: BLE001
-            falhas.append(f"{y}: {exc}")
-            log.warning("CVM %s %d indisponivel: %s", kind, y, exc)
+            falhas.append(f"{y}: {str(exc)[:120]}")
+            log.warning("CVM %s %d indisponivel: %s", kind, y, str(exc)[:200])
     if not frames:
-        raise SourceUnavailable(f"nenhum ano de {kind} obtido. {' | '.join(falhas[:5])}")
+        raise SourceUnavailable(f"nenhum ano de {kind} obtido. {' | '.join(falhas[:3])}")
     df = pd.concat(frames, ignore_index=True)
     df.attrs["anos_falhos"] = falhas
     return df

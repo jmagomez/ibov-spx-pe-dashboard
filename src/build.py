@@ -6,7 +6,8 @@ Principios que governam este arquivo:
    registrada em data/processed/status.json e exibida no dashboard.
 2. Nenhum estagio produz numero que nao tenha vindo de uma fonte. Nao ha
    fallback com media, interpolacao de lucro, valor default ou ultimo valor
-   conhecido travado.
+   conhecido travado. Alternar entre FONTES documentadas e outra coisa: a fonte
+   efetivamente usada aparece no diagnostico.
 3. Series com lastro insuficiente sao SUPRIMIDAS, nao publicadas com ressalva
    em letra miuda. O portao de cobertura do Ibovespa implementa isso.
 """
@@ -78,7 +79,7 @@ def build_spx(status: Status) -> pd.DataFrame:
         px, provedor = prices.fetch_index_close("spx")
         out["preco"] = px
         st.ok, st.obs = True, len(px)
-        st.detalhe = f"provedor: {provedor}"
+        st.detalhe = provedor
         st.inicio, st.fim = str(px.index.min().date()), str(px.index.max().date())
     except Exception as exc:  # noqa: BLE001
         st.detalhe = str(exc)
@@ -87,7 +88,11 @@ def build_spx(status: Status) -> pd.DataFrame:
     if out.empty:
         return out
 
-    st = Stage("eps_spx_spdji")
+    # LPA do indice: fonte primaria e a S&P DJI; a planilha Shiller e a
+    # alternativa. Nao e "fallback com valor default" -- e outra fonte, com
+    # linhagem declarada, e o painel de diagnostico diz qual foi usada.
+    st = Stage("eps_spx")
+    erros_eps = []
     try:
         q = spdji.fetch_sp500_quarterly_eps()
         col = "eps_as_reported" if "eps_as_reported" in q.columns else "eps_operating"
@@ -99,10 +104,24 @@ def build_spx(status: Status) -> pd.DataFrame:
             out["eps_ttm_operating"] = metrics.step_to_daily(
                 ttm_op, out.index, REPORTING_LAG_DAYS_INDEX)
         st.ok, st.obs = True, int(out["eps_ttm"].notna().sum())
-        st.detalhe = f"serie base: {col}"
+        st.detalhe = f"fonte: S&P Dow Jones Indices ({col}), trimestral"
     except Exception as exc:  # noqa: BLE001
-        st.detalhe = str(exc)
-        log.error("eps_spx_spdji falhou: %s", exc)
+        erros_eps.append(f"spdji: {str(exc)[:150]}")
+        log.warning("EPS via S&P DJI indisponivel: %s", str(exc)[:200])
+        try:
+            # A coluna E da planilha Shiller JA e LPA acumulado em 12 meses:
+            # entra direto, sem soma movel de quatro trimestres.
+            eps_m = shiller.fetch_eps_ttm()
+            out["eps_ttm"] = metrics.step_to_daily(eps_m, out.index, 0)
+            out["eps_ttm_pit"] = metrics.step_to_daily(
+                eps_m, out.index, REPORTING_LAG_DAYS_PIT)
+            st.ok, st.obs = True, int(out["eps_ttm"].notna().sum())
+            st.detalhe = ("fonte: planilha Shiller (coluna E, LPA 12m mensal) -- "
+                          "S&P DJI indisponivel")
+        except Exception as exc2:  # noqa: BLE001
+            erros_eps.append(f"shiller: {str(exc2)[:150]}")
+            st.detalhe = " | ".join(erros_eps)
+            log.error("nenhuma fonte de EPS respondeu: %s", erros_eps)
     status.add(st)
 
     if "eps_ttm" in out.columns:
@@ -139,7 +158,7 @@ def build_ibov(status: Status):
         px, provedor = prices.fetch_index_close("ibov")
         out["preco"] = px
         st.ok, st.obs = True, len(px)
-        st.detalhe = f"provedor: {provedor}"
+        st.detalhe = provedor
         st.inicio, st.fim = str(px.index.min().date()), str(px.index.max().date())
     except Exception as exc:  # noqa: BLE001
         st.detalhe = str(exc)
@@ -159,7 +178,7 @@ def build_ibov(status: Status):
     status.add(st)
     if comp.empty:
         status.avisos.append(
-            "Sem composicao do Ibovespa: a serie de P/E do IBOV nao foi construida.")
+            "Sem composicao do Ibovespa: a serie de valuation do IBOV nao foi construida.")
         return out, comp
 
     ano = datetime.now(timezone.utc).year
@@ -178,11 +197,13 @@ def build_ibov(status: Status):
                       + (f" | ITR {itr['data_fim'].min().date()}..{itr['data_fim'].max().date()}"
                          if not itr.empty else " | ITR ausente"))
     except Exception as exc:  # noqa: BLE001
-        st.detalhe = str(exc)
-        log.error("lucros_cvm falhou: %s", exc)
+        st.detalhe = str(exc)[:400]
+        log.error("lucros_cvm falhou: %s", str(exc)[:300])
     status.add(st)
     if lucros.empty:
-        status.avisos.append("Sem lucros da CVM: a serie de P/E do IBOV nao foi construida.")
+        status.avisos.append(
+            "Sem lucros da CVM: a serie de valuation do IBOV nao foi construida. "
+            "O portal da CVM nao respondeu a partir do runner -- ver ESTADO.md.")
         return out, comp
 
     # --- Conciliacao composicao B3 <-> companhias CVM -----------------------
@@ -222,7 +243,7 @@ def build_ibov(status: Status):
         status.avisos.append(
             f"SERIE DO IBOV SUPRIMIDA: cobertura de {cobertura:.1%} do peso do indice, "
             f"abaixo do minimo de {COBERTURA_MINIMA_IBOV:.0%}. Publicar um agregado que "
-            f"deixa de fora parte relevante do indice produziria um P/E que nao e o do "
+            f"deixa de fora parte relevante do indice produziria um numero que nao e o do "
             f"Ibovespa. Ver LIMITACOES.md, secao 3.")
         log.warning("Cobertura do IBOV insuficiente (%.1f%%). Serie suprimida.",
                     cobertura * 100)
