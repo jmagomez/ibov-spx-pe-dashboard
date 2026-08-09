@@ -16,14 +16,13 @@ from __future__ import annotations
 import json
 import logging
 import sys
-import unicodedata
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 
 import numpy as np
 import pandas as pd
 
-from . import metrics
+from . import metrics, reconcile
 from .config import (MAX_STALE_DAYS_CAPE, MAX_STALE_DAYS_EPS_MENSAL,
                      MAX_STALE_DAYS_EPS_TRIMESTRAL, MAX_STALE_DAYS_LUCRO_ANUAL,
                      MAX_STALE_DAYS_LUCRO_TRIMESTRAL, PROCESSED,
@@ -56,6 +55,7 @@ class Status:
     estagios: list = field(default_factory=list)
     avisos: list = field(default_factory=list)
     vigencias: list = field(default_factory=list)
+    conciliacao: dict = field(default_factory=dict)
 
     def add(self, s: Stage) -> None:
         self.estagios.append(asdict(s))
@@ -87,15 +87,6 @@ def _registrar_vigencia(status: Status, fonte: str, step: pd.Series, lag: int,
             f"{fonte}: a fonte parou em {pd.Series(step).dropna().index.max().date()} e a "
             f"ultima observacao venceu ha {dias} dias. O trecho final da serie fica VAZIO "
             f"em vez de repetir o ultimo valor -- ver METODOLOGIA.md, secao de validade.")
-
-
-def _norm(txt: str) -> str:
-    """Normaliza razao social para conciliacao: sem acento, sem sufixo societario."""
-    t = unicodedata.normalize("NFKD", str(txt)).encode("ascii", "ignore").decode().upper()
-    for suf in (" S.A.", " S/A", " SA", " S.A", " LTDA", " HOLDING", " PARTICIPACOES",
-                " PARTICIPACOES E INVESTIMENTOS", " CIA", " COMPANHIA", " DO BRASIL"):
-        t = t.replace(suf, " ")
-    return " ".join(t.split())
 
 
 # ---------------------------------------------------------------------------
@@ -270,31 +261,41 @@ def build_ibov(status: Status):
         return out, comp
 
     # --- Conciliacao composicao B3 <-> companhias CVM -----------------------
+    # Por CNPJ, com CD_CVM como chave estavel. Ver src/reconcile.py para o
+    # motivo -- em resumo: nome nao e chave, e CNPJ muda.
+    st = Stage("cadastro_b3")
+    empresas = pd.DataFrame()
+    try:
+        empresas = b3.fetch_empresas_listadas()
+        st.ok, st.obs = True, len(empresas)
+        st.detalhe = "ponte codigo de negociacao -> CNPJ"
+    except Exception as exc:  # noqa: BLE001
+        st.detalhe = str(exc)[:400]
+        status.avisos.append(
+            f"Cadastro de listadas da B3 indisponivel: a conciliacao cai para razao "
+            f"social, que e menos confiavel. {str(exc)[:200]}")
+        log.error("cadastro_b3 falhou: %s", str(exc)[:300])
+    status.add(st)
+
     st = Stage("conciliacao_ibov")
-    casadas = []
+    casadas = pd.DataFrame()
     cobertura = 0.0
     try:
-        comp["_key"] = comp["empresa"].map(_norm)
-        lucros["_key"] = lucros["empresa"].map(_norm)
-        chaves_cvm = {k: g for k, g in lucros.groupby("_key")}
-
-        peso_casado = 0.0
-        peso_total = float(
-            comp.get("participacao_pct", pd.Series(dtype=float)).sum() or 0.0)
-        for _, row in comp.iterrows():
-            k = row["_key"]
-            hit = chaves_cvm.get(k)
-            if hit is None:
-                hit = next((g for kk, g in chaves_cvm.items()
-                            if kk.startswith(k[:12]) and len(k) >= 8), None)
-            if hit is not None:
-                casadas.append((row["codigo"], k))
-                peso_casado += float(row.get("participacao_pct") or 0.0)
-        cobertura = peso_casado / peso_total if peso_total > 0 else 0.0
-        st.ok = True
-        st.detalhe = (f"{len(casadas)}/{len(comp)} ativos conciliados; "
-                      f"cobertura por peso = {cobertura:.1%}")
-        st.obs = len(casadas)
+        casadas, cobertura, rel = reconcile.conciliar(comp, empresas, lucros)
+        status.conciliacao = rel
+        st.ok, st.obs = True, len(casadas)
+        st.detalhe = (f"{rel['ativos']} ativos; cobertura por peso = {cobertura:.1%}; "
+                      f"{rel['por_cnpj']} via CNPJ, {rel['por_nome']} via razao social")
+        if rel["trocas_de_cnpj"]:
+            status.avisos.append(
+                f"{len(rel['trocas_de_cnpj'])} companhia(s) trocaram de CNPJ no periodo. "
+                f"Os numeros antigos continuam resolvendo para o mesmo codigo CVM, de "
+                f"modo que o lucro anterior a troca NAO se perde. Detalhe em "
+                f"status.json, campo conciliacao.trocas_de_cnpj.")
+        if rel["cnpj_ambiguo"]:
+            status.avisos.append(
+                f"{len(rel['cnpj_ambiguo'])} CNPJ(s) apontam para mais de um codigo CVM "
+                f"e foram RECUSADOS em vez de desempatados por criterio arbitrario.")
     except Exception as exc:  # noqa: BLE001
         st.detalhe = str(exc)
         cobertura = 0.0
@@ -315,8 +316,8 @@ def build_ibov(status: Status):
     # --- Agregacao ----------------------------------------------------------
     st = Stage("pe_ibov")
     try:
-        keys = {k for _, k in casadas}
-        sel = lucros[lucros["_key"].isin(keys)].copy()
+        keys = set(casadas["cd_cvm"].astype(str))
+        sel = lucros[lucros["cd_cvm"].astype(str).isin(keys)].copy()
         anual = (sel[sel["freq"] == "A"].groupby("data_fim")["lucro"].sum().sort_index())
         trim = (sel[sel["freq"] == "T"].groupby("data_fim")["lucro"].sum().sort_index())
         ttm_trim = metrics.ttm_from_quarterly(trim) if not trim.empty else pd.Series(dtype=float)
