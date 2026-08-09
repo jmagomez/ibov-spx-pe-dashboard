@@ -77,6 +77,8 @@ def _read_zip_csv(content: bytes, name_contains: str) -> pd.DataFrame:
 def _extract_profit(df: pd.DataFrame, freq: str) -> pd.DataFrame:
     """Filtra a linha de lucro consolidado do ultimo exercicio/periodo."""
     needed = {"CD_CONTA", "VL_CONTA", "DT_FIM_EXERC", "CD_CVM", "DENOM_CIA", "ORDEM_EXERC"}
+    # CNPJ_CIA e opcional de proposito: se a CVM deixar de publica-lo, a
+    # conciliacao cai para razao social em vez de o pipeline inteiro parar.
     missing = needed - set(df.columns)
     if missing:
         raise SourceUnavailable(f"colunas ausentes no CSV da CVM: {sorted(missing)}")
@@ -102,8 +104,14 @@ def _extract_profit(df: pd.DataFrame, freq: str) -> pd.DataFrame:
     sel["_prio"] = (sel["CD_CONTA"] == CONTA_LUCRO).astype(int)
     sel = (sel.sort_values(["CD_CVM", "DT_FIM_EXERC", "_prio"])
               .drop_duplicates(["CD_CVM", "DT_FIM_EXERC"], keep="last"))
-    out = sel[["CD_CVM", "DENOM_CIA", "DT_FIM_EXERC", "VL_CONTA"]].copy()
-    out.columns = ["cd_cvm", "empresa", "data_fim", "lucro"]
+    cols = ["CD_CVM", "DENOM_CIA", "DT_FIM_EXERC", "VL_CONTA"]
+    if "CNPJ_CIA" in sel.columns:
+        cols.append("CNPJ_CIA")
+    out = sel[cols].copy()
+    out.columns = (["cd_cvm", "empresa", "data_fim", "lucro"]
+                   + (["cnpj"] if "CNPJ_CIA" in sel.columns else []))
+    if "cnpj" not in out.columns:
+        out["cnpj"] = ""
     out["freq"] = freq
     return out
 
@@ -155,7 +163,7 @@ def fetch_range(years: Iterable[int], kind: str) -> pd.DataFrame:
 # portal esta fora do ar, e isso nao torna o resultado mais honesto: torna-o
 # indisponivel.
 
-COLUNAS_CACHE = ["cd_cvm", "empresa", "data_fim", "lucro", "freq"]
+COLUNAS_CACHE = ["cd_cvm", "empresa", "data_fim", "lucro", "freq", "cnpj"]
 
 
 def salvar_cache(df: pd.DataFrame, origem: str) -> None:
@@ -177,7 +185,7 @@ def carregar_cache() -> tuple[pd.DataFrame, dict]:
     """Devolve (dados, metadados). DataFrame vazio se nao houver cache."""
     if not CVM_CACHE.exists():
         return pd.DataFrame(), {}
-    df = pd.read_csv(CVM_CACHE, parse_dates=["data_fim"])
+    df = pd.read_csv(CVM_CACHE, parse_dates=["data_fim"], dtype={"cnpj": str})
     faltando = set(COLUNAS_CACHE) - set(df.columns)
     if faltando:
         log.warning("cache da CVM ignorado: colunas ausentes %s", sorted(faltando))
