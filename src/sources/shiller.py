@@ -85,14 +85,26 @@ def _escolher_cape(df: pd.DataFrame, body: pd.DataFrame, cols: list, h: int):
     escolha passa pelos dois crivos: preferencia por rotulo exato, e recusa de
     qualquer coluna cuja mediana nao caiba na faixa historica do indicador.
     """
-    rotulos = {c: str(df.iloc[h][c]).strip().lower() for c in cols}
+    # O cabecalho da ie_data ocupa mais de uma linha, e o rotulo de uma coluna
+    # costuma estar numa linha ACIMA da localizada pela busca por "cape". Ler
+    # uma linha so foi o que fez a coluna errada parecer chamar-se "cape" na
+    # execucao #6: a mediana da escolhida deu 0,034, um rendimento.
+    rotulos = {}
+    for c in cols:
+        partes = []
+        for r in range(max(0, h - 2), h + 1):
+            v = str(df.iloc[r][c]).strip().lower()
+            if v and v != "nan":
+                partes.append(v)
+        rotulos[c] = " ".join(partes)
 
     def _pontuar(rotulo: str) -> int:
+        toks = rotulo.split()
         if "yield" in rotulo or "excess" in rotulo:
             return -1          # rendimento, nao multiplo
-        if rotulo == "cape":
+        if toks == ["cape"]:
             return 3
-        if rotulo.startswith("cape"):
+        if "cape" in toks:
             return 2
         if "cape" in rotulo:
             return 1
@@ -132,7 +144,18 @@ def fetch_tabela() -> pd.DataFrame:
     preco = pd.to_numeric(body[cols[1]], errors="coerce")
     lucro = pd.to_numeric(body[cols[3]], errors="coerce")
 
-    cape, cape_rotulo = _escolher_cape(df, body, cols, h)
+    # REGRESSAO CORRIGIDA: ate a execucao #6, uma falha aqui abortava fetch_tabela
+    # e, com ela, fetch_eps_ttm -- que le a MESMA tabela. O resultado foi o pior
+    # possivel: um problema no CAPE apagou tambem o P/E do S&P, que estava
+    # correto e disponivel. Uma serie ruim deve derrubar a si mesma, nao as
+    # vizinhas. O motivo fica registrado e sai no diagnostico.
+    try:
+        cape, cape_rotulo = _escolher_cape(df, body, cols, h)
+        cape_erro = ""
+    except SourceUnavailable as exc:
+        cape = pd.Series(index=body.index, dtype="float64")
+        cape_rotulo, cape_erro = "recusada", str(exc)
+        log.warning("CAPE indisponivel (%s); o lucro da mesma planilha segue valido", exc)
 
     out = pd.DataFrame({"preco": preco.values, "lucro_ttm": lucro.values,
                         "cape": cape.values}, index=datas)
@@ -143,6 +166,7 @@ def fetch_tabela() -> pd.DataFrame:
         raise SourceUnavailable(
             "coluna de lucro da planilha Shiller nao parece numerica; layout mudou")
     out.attrs["cape_rotulo"] = cape_rotulo
+    out.attrs["cape_erro"] = cape_erro
     log.info("Shiller: %d meses de %s a %s (lucro=%d, cape=%d via '%s')", len(out),
              out.index.min().date(), out.index.max().date(),
              int(out["lucro_ttm"].notna().sum()), int(out["cape"].notna().sum()),
@@ -152,9 +176,10 @@ def fetch_tabela() -> pd.DataFrame:
 
 def fetch_cape() -> pd.Series:
     """Serie mensal do CAPE."""
-    s = fetch_tabela()["cape"].dropna()
+    t = fetch_tabela()
+    s = t["cape"].dropna()
     if s.empty:
-        raise SourceUnavailable("serie CAPE vazia")
+        raise SourceUnavailable(t.attrs.get("cape_erro") or "serie CAPE vazia")
     return s
 
 

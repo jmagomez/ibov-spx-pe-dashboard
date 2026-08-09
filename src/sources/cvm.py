@@ -56,7 +56,12 @@ def diagnostico_conectividade() -> dict:
 
 def _read_zip_csv(content: bytes, name_contains: str) -> pd.DataFrame:
     with zipfile.ZipFile(io.BytesIO(content)) as zf:
-        names = [n for n in zf.namelist() if name_contains in n and n.endswith(".csv")]
+        # Case-insensitive: a CVM nomeia o arquivo "dfp_cia_aberta_DRE_con_2010.csv".
+        # A comparacao sensivel a caixa nunca casava, e o erro resultante ("zip
+        # sem arquivo dre_con") parecia problema de rede na execucao anterior,
+        # quando o download ja funcionava.
+        alvo = name_contains.lower()
+        names = [n for n in zf.namelist() if alvo in n.lower() and n.lower().endswith(".csv")]
         if not names:
             raise SourceUnavailable(
                 f"zip da CVM sem arquivo contendo '{name_contains}': {zf.namelist()[:8]}"
