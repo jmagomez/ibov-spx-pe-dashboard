@@ -1,5 +1,5 @@
 {
-  "gerado_em_utc": "2026-08-09T14:48:38+00:00",
+  "gerado_em_utc": "2026-08-09T18:06:23+00:00",
   "estagios": [
     {
       "nome": "precos_spx",
@@ -50,17 +50,27 @@
       "fim": ""
     },
     {
+      "nome": "cadastro_b3",
+      "ok": false,
+      "detalhe": "cadastro da B3 sem 'results': chaves=['page', 'results']",
+      "obs": 0,
+      "inicio": "",
+      "fim": ""
+    },
+    {
       "nome": "conciliacao_ibov",
       "ok": true,
-      "detalhe": "39/78 ativos conciliados; cobertura por peso = 47.9%",
-      "obs": 39,
+      "detalhe": "33/78 ativos; cobertura por peso = 44.3%; 0 via CNPJ, 33 via razao social",
+      "obs": 33,
       "inicio": "",
       "fim": ""
     }
   ],
   "avisos": [
     "eps_spx: a fonte parou em 2024-06-01 e a ultima observacao venceu ha 677 dias. O trecho final da serie fica VAZIO em vez de repetir o ultimo valor -- ver METODOLOGIA.md, secao de validade.",
-    "SERIE DO IBOV SUPRIMIDA: cobertura de 47.9% do peso do indice, abaixo do minimo de 80%. Publicar um agregado que deixa de fora parte relevante do indice produziria um numero que nao e o do Ibovespa. Ver LIMITACOES.md, secao 3."
+    "Cadastro de listadas da B3 indisponivel: a conciliacao cai para razao social, que e menos confiavel. cadastro da B3 sem 'results': chaves=['page', 'results']",
+    "5 CNPJ(s) apontam para mais de um codigo CVM e foram RECUSADOS em vez de desempatados por criterio arbitrario.",
+    "SERIE DO IBOV SUPRIMIDA: cobertura de 44.3% do peso do indice, abaixo do minimo de 80%. Publicar um agregado que deixa de fora parte relevante do indice produziria um numero que nao e o do Ibovespa. Ver LIMITACOES.md, secao 3."
   ],
   "vigencias": [
     {
@@ -70,5 +80,231 @@
       "defasagem_dias": 797,
       "vencida": true
     }
-  ]
+  ],
+  "conciliacao": {
+    "por_cnpj": 0,
+    "por_nome": 33,
+    "sem_correspondencia": [
+      {
+        "codigo": "ASAI3",
+        "peso": 0.459
+      },
+      {
+        "codigo": "B3SA3",
+        "peso": 3.112
+      },
+      {
+        "codigo": "BBSE3",
+        "peso": 0.985
+      },
+      {
+        "codigo": "BBDC3",
+        "peso": 0.977
+      },
+      {
+        "codigo": "BBDC4",
+        "peso": 3.888
+      },
+      {
+        "codigo": "BBAS3",
+        "peso": 2.375
+      },
+      {
+        "codigo": "BRAV3",
+        "peso": 0.264
+      },
+      {
+        "codigo": "BPAC11",
+        "peso": 2.682
+      },
+      {
+        "codigo": "CXSE3",
+        "peso": 0.483
+      },
+      {
+        "codigo": "CEAB3",
+        "peso": 0.078
+      },
+      {
+        "codigo": "CMIG4",
+        "peso": 0.866
+      },
+      {
+        "codigo": "COGN3",
+        "peso": 0.177
+      },
+      {
+        "codigo": "CSMG3",
+        "peso": 0.928
+      },
+      {
+        "codigo": "CPLE3",
+        "peso": 1.814
+      },
+      {
+        "codigo": "CMIN3",
+        "peso": 0.374
+      },
+      {
+        "codigo": "CURY3",
+        "peso": 0.21
+      },
+      {
+        "codigo": "CYRE3",
+        "peso": 0.254
+      },
+      {
+        "codigo": "DIRR3",
+        "peso": 0.158
+      },
+      {
+        "codigo": "EGIE3",
+        "peso": 0.549
+      },
+      {
+        "codigo": "GOAU4",
+        "peso": 0.381
+      },
+      {
+        "codigo": "HAPV3",
+        "peso": 0.122
+      },
+      {
+        "codigo": "ISAE4",
+        "peso": 0.503
+      },
+      {
+        "codigo": "ITUB4",
+        "peso": 8.572
+      },
+      {
+        "codigo": "RENT3",
+        "peso": 1.541
+      },
+      {
+        "codigo": "MGLU3",
+        "peso": 0.068
+      },
+      {
+        "codigo": "MBRF3",
+        "peso": 0.509
+      },
+      {
+        "codigo": "MOTV3",
+        "peso": 0.605
+      },
+      {
+        "codigo": "MRVE3",
+        "peso": 0.07
+      },
+      {
+        "codigo": "MULT3",
+        "peso": 0.37
+      },
+      {
+        "codigo": "NATU3",
+        "peso": 0.289
+      },
+      {
+        "codigo": "PETR3",
+        "peso": 4.259
+      },
+      {
+        "codigo": "PETR4",
+        "peso": 7.509
+      },
+      {
+        "codigo": "RECV3",
+        "peso": 0.117
+      },
+      {
+        "codigo": "RADL3",
+        "peso": 1.107
+      },
+      {
+        "codigo": "RDOR3",
+        "peso": 1.542
+      },
+      {
+        "codigo": "SBSP3",
+        "peso": 3.215
+      },
+      {
+        "codigo": "SANB11",
+        "peso": 0.439
+      },
+      {
+        "codigo": "CSNA3",
+        "peso": 0.139
+      },
+      {
+        "codigo": "SMFT3",
+        "peso": 0.421
+      },
+      {
+        "codigo": "TAEE11",
+        "peso": 0.357
+      },
+      {
+        "codigo": "VIVT3",
+        "peso": 0.901
+      },
+      {
+        "codigo": "USIM5",
+        "peso": 0.154
+      },
+      {
+        "codigo": "VAMO3",
+        "peso": 0.057
+      },
+      {
+        "codigo": "VBBR3",
+        "peso": 1.699
+      },
+      {
+        "codigo": "YDUQ3",
+        "peso": 0.087
+      }
+    ],
+    "trocas_de_cnpj": [],
+    "cnpj_ambiguo": [
+      {
+        "cnpj": "08926302000105",
+        "cd_cvm": [
+          "023493",
+          "027740"
+        ]
+      },
+      {
+        "cnpj": "09149503000106",
+        "cd_cvm": [
+          "022110",
+          "023426"
+        ]
+      },
+      {
+        "cnpj": "42737954000121",
+        "cd_cvm": [
+          "057886",
+          "080217"
+        ]
+      },
+      {
+        "cnpj": "59717553000102",
+        "cd_cvm": [
+          "026034",
+          "902123"
+        ]
+      },
+      {
+        "cnpj": "62258884000136",
+        "cd_cvm": [
+          "019631",
+          "025992"
+        ]
+      }
+    ],
+    "cobertura_por_peso": 0.4433,
+    "ativos": "33/78"
+  }
 }
