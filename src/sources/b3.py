@@ -60,12 +60,12 @@ def fetch_ibov_composition() -> pd.DataFrame:
 
 
 def fetch_empresas_listadas() -> pd.DataFrame:
-    """Cadastro de companhias listadas: raiz do codigo de negociacao e CNPJ.
+    """Cadastro de companhias listadas: raiz do codigo, CNPJ e codigo CVM.
 
     A carteira do indice traz o codigo (VALE3) e o nome de pregao (VALE); nao
-    traz CNPJ. A CVM identifica companhia por CNPJ e codigo CVM; nao conhece
-    codigo de negociacao. Este cadastro e o unico ponto em que os dois universos
-    se tocam, e por isso a conciliacao depende dele.
+    traz CNPJ nem codigo CVM. A CVM identifica companhia por CNPJ e codigo CVM;
+    nao conhece codigo de negociacao. Este cadastro e o unico ponto em que os
+    dois universos se tocam, e por isso a conciliacao depende dele.
 
     PAGINADO. Pedir pageSize=500 devolveu `{"page": ..., "results": []}` -- uma
     resposta HTTP 200, bem formada, e vazia. O endpoint tem um teto de pagina e,
@@ -74,7 +74,7 @@ def fetch_empresas_listadas() -> pd.DataFrame:
     abaixo pede paginas pequenas e usa o total informado pelo proprio payload.
 
     Endpoint interno do portal, sem contrato publico -- mesmo risco ja registrado
-    para a carteira. Se a resposta vier sem campo de CNPJ, a funcao levanta
+    para a carteira. Se a resposta vier sem os campos esperados, a funcao levanta
     excecao com a lista de campos recebidos, para que a mudanca de layout apareca
     no diagnostico em vez de virar cobertura baixa sem explicacao.
     """
@@ -127,6 +127,7 @@ def fetch_empresas_listadas() -> pd.DataFrame:
 
     col_cnpj = _escolher(("cnpj", "companycnpj"))
     col_raiz = _escolher(("issuingcompany", "tradingname", "code"))
+    col_cd = _escolher(("codecvm", "cvmcode"))
     if col_cnpj is None or col_raiz is None:
         raise SourceUnavailable(
             f"cadastro da B3 sem campo de CNPJ ou de codigo; campos recebidos: {campos}")
@@ -134,9 +135,17 @@ def fetch_empresas_listadas() -> pd.DataFrame:
     out = pd.DataFrame({
         "raiz": df[col_raiz].astype(str).str.upper().str.replace(r"[^A-Z]", "", regex=True).str[:4],
         "cnpj": df[col_cnpj].astype(str).map(lambda v: "" if v.lower() in ("none", "nan") else v),
+        # codeCVM e a ligacao DIRETA com o registro na CVM -- mais forte que o
+        # CNPJ, porque nao depende de qual entidade do grupo a B3 escolheu
+        # cadastrar. Foi o que faltava para ITUB, PETR e outros pesos pesados.
+        "cd_cvm": (df[col_cd].astype(str).str.replace(r"\D", "", regex=True).str.lstrip("0")
+                   if col_cd else ""),
         "nome": df.get("companyName", pd.Series([""] * len(df))).astype(str),
     })
-    out = out[(out["raiz"] != "") & (out["cnpj"] != "")].drop_duplicates("raiz")
+    # Basta UM identificador utilizavel. Exigir CNPJ descartaria companhias que
+    # so trazem codeCVM -- e o codeCVM e justamente a ligacao mais forte.
+    out = out[(out["raiz"] != "") & ((out["cnpj"] != "") | (out["cd_cvm"] != ""))]
+    out = out.drop_duplicates("raiz")
 
     # Estagio "ok" com zero linhas nao e sucesso: e uma falha que nao avisou.
     # Depois de ter recebido registros da B3, uma tabela vazia so pode vir de
@@ -145,9 +154,9 @@ def fetch_empresas_listadas() -> pd.DataFrame:
         amostra = {c: str(df[c].iloc[0])[:40] for c in campos[:10]}
         raise SourceUnavailable(
             f"cadastro da B3: {len(df)} registros recebidos mas nenhum par "
-            f"(codigo, CNPJ) utilizavel. Campos={campos}; colunas escolhidas="
-            f"{col_raiz}/{col_cnpj}; primeira linha={amostra}")
+            f"(codigo, identificador) utilizavel. Campos={campos}; colunas "
+            f"escolhidas={col_raiz}/{col_cnpj}/{col_cd}; primeira linha={amostra}")
 
-    log.info("B3: %d companhias listadas com CNPJ em %d pagina(s) (campos: %s / %s)",
-             len(out), pagina - 1, col_raiz, col_cnpj)
+    log.info("B3: %d companhias listadas em %d pagina(s) (campos: %s / %s / %s)",
+             len(out), pagina - 1, col_raiz, col_cnpj, col_cd)
     return out
