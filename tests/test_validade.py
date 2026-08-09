@@ -134,3 +134,59 @@ def test_cape_plausivel_exige_amostra_minima_e_faixa():
     assert shiller.cape_plausivel(pd.Series([25.0] * 24))
     assert not shiller.cape_plausivel(pd.Series([0.03] * 240))
     assert not shiller.cape_plausivel(pd.Series([250.0] * 240))
+
+
+# ---------------------------------------------------------------------------
+# Isolamento entre series da mesma fonte
+# ---------------------------------------------------------------------------
+
+def test_cape_ruim_nao_derruba_o_lucro_da_mesma_planilha():
+    """Regressao observada na execucao #6 e corrigida em seguida.
+
+    CAPE e lucro saem da MESMA aba. Quando a selecao do CAPE passou a levantar
+    excecao, ela abortou fetch_tabela inteira -- e com ela fetch_eps_ttm, que
+    estava correto. O efeito pratico foi o pior possivel: uma checagem criada
+    para impedir um numero errado apagou tambem um numero certo, e o dashboard
+    ficou sem o P/E do S&P.
+
+    Uma serie ruim derruba a si mesma, nao as vizinhas.
+    """
+    import unittest.mock as mock
+
+    n = 200
+    df = pd.DataFrame({
+        0: ["Date"] + list(np.linspace(2010.01, 2026.08, n)),
+        1: ["P"] + list(np.linspace(1000.0, 5000.0, n)),
+        2: ["D"] + list(np.linspace(20.0, 60.0, n)),
+        3: ["E"] + list(np.linspace(60.0, 200.0, n)),
+        4: ["CAPE"] + list(np.linspace(0.01, 0.06, n)),  # implausivel de proposito
+    })
+    df.attrs["header_row"] = 0
+
+    with mock.patch.object(shiller, "_abrir_tabela", return_value=df):
+        t = shiller.fetch_tabela()
+        assert t["lucro_ttm"].notna().sum() > 0, "o lucro nao pode ser vitima do CAPE"
+        assert t["cape"].notna().sum() == 0, "o CAPE implausivel tem de ficar vazio"
+        assert "plausivel" in t.attrs["cape_erro"]
+        with pytest.raises(Exception):
+            shiller.fetch_cape()
+
+
+def test_zip_da_cvm_casa_nome_de_arquivo_sem_olhar_a_caixa():
+    """A CVM nomeia o arquivo DRE_con; o filtro procurava dre_con.
+
+    O erro dai resultante -- "zip sem arquivo dre_con" -- so apareceu quando o
+    download passou a funcionar. Antes disso ficava escondido atras da falha de
+    conexao, e a causa parecia ser rede.
+    """
+    import io
+    import zipfile
+
+    from src.sources import cvm
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("dfp_cia_aberta_2010.csv", "x;y\n1;2\n")
+        zf.writestr("dfp_cia_aberta_DRE_con_2010.csv", "a;b\n3;4\n")
+    got = cvm._read_zip_csv(buf.getvalue(), "dre_con")
+    assert list(got.columns) == ["a", "b"], "tem de achar o DRE_con em maiusculas"
