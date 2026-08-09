@@ -15,14 +15,16 @@ Emendar as duas em uma linha unica sem sinalizacao seria enganoso.
 from __future__ import annotations
 
 import io
+import json
 import logging
 import zipfile
+from datetime import datetime, timezone
 from typing import Iterable
 
 import pandas as pd
 
-from ..config import CVM_DFP_BASE, CVM_ITR_BASE
-from .http import SourceUnavailable, get
+from ..config import (CVM_CACHE, CVM_CACHE_META, CVM_DFP_BASES, CVM_ITR_BASES)
+from .http import SourceUnavailable, diagnosticar, get_qualquer
 
 log = logging.getLogger(__name__)
 
@@ -31,16 +33,25 @@ CONTA_LUCRO = "3.11"
 CONTA_LUCRO_ALT = "3.09"  # fallback: resultado liquido das operacoes continuadas
 
 
-def _baixar(url: str) -> bytes:
-    """Download de um zip da CVM.
+def _baixar(bases: tuple, arquivo: str) -> tuple[bytes, str]:
+    """Baixa um zip da CVM tentando cada base equivalente (https e http).
 
-    retries=1 e deliberado. Na execucao #4 o host se mostrou inalcancavel a
-    partir do runner ("Network is unreachable"), e a politica padrao de tres
-    tentativas com backoff consumiu cerca de tres minutos POR ANO -- quarenta
-    minutos de job para constatar em segundos que o host nao responde. Erro de
-    rede em host inalcancavel nao melhora com insistencia.
+    retries=2, nao 1. A politica anterior era de uma tentativa so, adotada
+    quando o host se mostrou INALCANCAVEL a partir do runner -- e insistir com
+    host inalcancavel so queima tempo de job. Mas erro de rota e erro
+    intermitente produzem a mesma mensagem no requests, e tratar os dois como
+    permanentes descarta o caso recuperavel. Duas tentativas com backoff curto
+    custam segundos quando a rota nao existe (o connect_timeout de 8s corta
+    rapido) e resgatam a falha transitoria.
     """
-    return get(url, retries=1, timeout=180, connect_timeout=10)
+    urls = [base + arquivo for base in bases]
+    return get_qualquer(urls, retries=2, backoff=2.0, timeout=180, connect_timeout=8)
+
+
+def diagnostico_conectividade() -> dict:
+    """Onde exatamente a conexao com a CVM quebra. Roda em segundos."""
+    alvo = CVM_DFP_BASES[0] + "dfp_cia_aberta_2023.zip"
+    return diagnosticar(alvo)
 
 
 def _read_zip_csv(content: bytes, name_contains: str) -> pd.DataFrame:
@@ -94,14 +105,14 @@ def _extract_profit(df: pd.DataFrame, freq: str) -> pd.DataFrame:
 
 def fetch_dfp_year(year: int) -> pd.DataFrame:
     """Lucro anual consolidado de todas as companhias, para um exercicio."""
-    url = f"{CVM_DFP_BASE}dfp_cia_aberta_{year}.zip"
-    return _extract_profit(_read_zip_csv(_baixar(url), "dre_con"), freq="A")
+    conteudo, _ = _baixar(CVM_DFP_BASES, f"dfp_cia_aberta_{year}.zip")
+    return _extract_profit(_read_zip_csv(conteudo, "dre_con"), freq="A")
 
 
 def fetch_itr_year(year: int) -> pd.DataFrame:
     """Lucro trimestral consolidado de todas as companhias, para um ano."""
-    url = f"{CVM_ITR_BASE}itr_cia_aberta_{year}.zip"
-    return _extract_profit(_read_zip_csv(_baixar(url), "dre_con"), freq="T")
+    conteudo, _ = _baixar(CVM_ITR_BASES, f"itr_cia_aberta_{year}.zip")
+    return _extract_profit(_read_zip_csv(conteudo, "dre_con"), freq="T")
 
 
 def fetch_range(years: Iterable[int], kind: str) -> pd.DataFrame:
@@ -125,3 +136,57 @@ def fetch_range(years: Iterable[int], kind: str) -> pd.DataFrame:
     df = pd.concat(frames, ignore_index=True)
     df.attrs["anos_falhos"] = falhas
     return df
+
+
+# ---------------------------------------------------------------------------
+# Cache
+# ---------------------------------------------------------------------------
+# O que segue NAO relaxa a regra do repositorio de nao inventar numero. O cache
+# guarda o resultado de uma coleta que de fato aconteceu, com a data em que
+# aconteceu. Quando a CVM nao responde e o cache e usado, o pipeline registra a
+# origem e a idade, o dashboard exibe as duas, e nenhum valor e extrapolado. A
+# alternativa -- redescobrir a mesma serie de 16 exercicios a cada sabado, com
+# uma fonte que ja se mostrou inconstante -- perde a serie inteira sempre que o
+# portal esta fora do ar, e isso nao torna o resultado mais honesto: torna-o
+# indisponivel.
+
+COLUNAS_CACHE = ["cd_cvm", "empresa", "data_fim", "lucro", "freq"]
+
+
+def salvar_cache(df: pd.DataFrame, origem: str) -> None:
+    if df.empty:
+        return
+    CVM_CACHE.parent.mkdir(parents=True, exist_ok=True)
+    df[COLUNAS_CACHE].to_csv(CVM_CACHE, index=False)
+    CVM_CACHE_META.write_text(json.dumps({
+        "coletado_em_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "linhas": int(len(df)),
+        "origem": origem,
+        "data_fim_min": str(df["data_fim"].min().date()),
+        "data_fim_max": str(df["data_fim"].max().date()),
+    }, ensure_ascii=False, indent=2), encoding="utf-8")
+    log.info("cache da CVM gravado: %d linhas", len(df))
+
+
+def carregar_cache() -> tuple[pd.DataFrame, dict]:
+    """Devolve (dados, metadados). DataFrame vazio se nao houver cache."""
+    if not CVM_CACHE.exists():
+        return pd.DataFrame(), {}
+    df = pd.read_csv(CVM_CACHE, parse_dates=["data_fim"])
+    faltando = set(COLUNAS_CACHE) - set(df.columns)
+    if faltando:
+        log.warning("cache da CVM ignorado: colunas ausentes %s", sorted(faltando))
+        return pd.DataFrame(), {}
+    meta = {}
+    if CVM_CACHE_META.exists():
+        try:
+            meta = json.loads(CVM_CACHE_META.read_text(encoding="utf-8"))
+        except Exception:  # noqa: BLE001
+            meta = {}
+    if meta.get("coletado_em_utc"):
+        try:
+            col = datetime.fromisoformat(meta["coletado_em_utc"])
+            meta["idade_dias"] = (datetime.now(timezone.utc) - col).days
+        except Exception:  # noqa: BLE001
+            pass
+    return df, meta

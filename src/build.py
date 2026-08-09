@@ -24,8 +24,10 @@ import numpy as np
 import pandas as pd
 
 from . import metrics
-from .config import (PROCESSED, REPORTING_LAG_DAYS_INDEX, REPORTING_LAG_DAYS_PIT,
-                     STAT_WINDOW)
+from .config import (MAX_STALE_DAYS_CAPE, MAX_STALE_DAYS_EPS_MENSAL,
+                     MAX_STALE_DAYS_EPS_TRIMESTRAL, MAX_STALE_DAYS_LUCRO_ANUAL,
+                     MAX_STALE_DAYS_LUCRO_TRIMESTRAL, PROCESSED,
+                     REPORTING_LAG_DAYS_INDEX, REPORTING_LAG_DAYS_PIT, STAT_WINDOW)
 from .sources import b3, cvm, prices, shiller, spdji
 
 logging.basicConfig(level=logging.INFO,
@@ -53,9 +55,38 @@ class Status:
     gerado_em_utc: str = ""
     estagios: list = field(default_factory=list)
     avisos: list = field(default_factory=list)
+    vigencias: list = field(default_factory=list)
 
     def add(self, s: Stage) -> None:
         self.estagios.append(asdict(s))
+
+
+def _registrar_vigencia(status: Status, fonte: str, step: pd.Series, lag: int,
+                        teto: int, daily_index: pd.DatetimeIndex) -> None:
+    """Anota ate quando a fonte tem lastro e quanto do fim da serie ficou vazio.
+
+    Sem isto, a unica pista de que uma fonte parou de ser atualizada e a serie
+    parar de andar no grafico -- e nem isso, quando o ffill a estende. O aviso
+    abaixo e o que transforma silencio em informacao.
+    """
+    venc = metrics.vencimento(step, lag, teto)
+    if pd.isna(venc):
+        return
+    ultimo_pregao = daily_index.max()
+    atraso = metrics.defasagem_dias(step, ultimo_pregao)
+    status.vigencias.append({
+        "fonte": fonte,
+        "ultima_observacao": str(pd.Series(step).dropna().index.max().date()),
+        "vigente_ate": str(pd.Timestamp(venc).date()),
+        "defasagem_dias": atraso,
+        "vencida": bool(venc < ultimo_pregao),
+    })
+    if venc < ultimo_pregao:
+        dias = int((ultimo_pregao - venc).days)
+        status.avisos.append(
+            f"{fonte}: a fonte parou em {pd.Series(step).dropna().index.max().date()} e a "
+            f"ultima observacao venceu ha {dias} dias. O trecho final da serie fica VAZIO "
+            f"em vez de repetir o ultimo valor -- ver METODOLOGIA.md, secao de validade.")
 
 
 def _norm(txt: str) -> str:
@@ -97,12 +128,17 @@ def build_spx(status: Status) -> pd.DataFrame:
         q = spdji.fetch_sp500_quarterly_eps()
         col = "eps_as_reported" if "eps_as_reported" in q.columns else "eps_operating"
         ttm = metrics.ttm_from_quarterly(q[col])
-        out["eps_ttm"] = metrics.step_to_daily(ttm, out.index, REPORTING_LAG_DAYS_INDEX)
-        out["eps_ttm_pit"] = metrics.step_to_daily(ttm, out.index, REPORTING_LAG_DAYS_PIT)
+        out["eps_ttm"] = metrics.step_to_daily(
+            ttm, out.index, REPORTING_LAG_DAYS_INDEX, MAX_STALE_DAYS_EPS_TRIMESTRAL)
+        out["eps_ttm_pit"] = metrics.step_to_daily(
+            ttm, out.index, REPORTING_LAG_DAYS_PIT, MAX_STALE_DAYS_EPS_TRIMESTRAL)
+        _registrar_vigencia(status, "eps_spx", ttm, REPORTING_LAG_DAYS_INDEX,
+                            MAX_STALE_DAYS_EPS_TRIMESTRAL, out.index)
         if "eps_operating" in q.columns and col != "eps_operating":
             ttm_op = metrics.ttm_from_quarterly(q["eps_operating"])
             out["eps_ttm_operating"] = metrics.step_to_daily(
-                ttm_op, out.index, REPORTING_LAG_DAYS_INDEX)
+                ttm_op, out.index, REPORTING_LAG_DAYS_INDEX,
+                MAX_STALE_DAYS_EPS_TRIMESTRAL)
         st.ok, st.obs = True, int(out["eps_ttm"].notna().sum())
         st.detalhe = f"fonte: S&P Dow Jones Indices ({col}), trimestral"
     except Exception as exc:  # noqa: BLE001
@@ -112,9 +148,12 @@ def build_spx(status: Status) -> pd.DataFrame:
             # A coluna E da planilha Shiller JA e LPA acumulado em 12 meses:
             # entra direto, sem soma movel de quatro trimestres.
             eps_m = shiller.fetch_eps_ttm()
-            out["eps_ttm"] = metrics.step_to_daily(eps_m, out.index, 0)
+            out["eps_ttm"] = metrics.step_to_daily(
+                eps_m, out.index, 0, MAX_STALE_DAYS_EPS_MENSAL)
             out["eps_ttm_pit"] = metrics.step_to_daily(
-                eps_m, out.index, REPORTING_LAG_DAYS_PIT)
+                eps_m, out.index, REPORTING_LAG_DAYS_PIT, MAX_STALE_DAYS_EPS_MENSAL)
+            _registrar_vigencia(status, "eps_spx", eps_m, 0,
+                                MAX_STALE_DAYS_EPS_MENSAL, out.index)
             st.ok, st.obs = True, int(out["eps_ttm"].notna().sum())
             st.detalhe = ("fonte: planilha Shiller (coluna E, LPA 12m mensal) -- "
                           "S&P DJI indisponivel")
@@ -136,7 +175,9 @@ def build_spx(status: Status) -> pd.DataFrame:
     st = Stage("cape_shiller")
     try:
         cape = shiller.fetch_cape()
-        out["cape"] = metrics.step_to_daily(cape, out.index, 0)
+        out["cape"] = metrics.step_to_daily(cape, out.index, 0, MAX_STALE_DAYS_CAPE)
+        _registrar_vigencia(status, "cape_shiller", cape, 0, MAX_STALE_DAYS_CAPE,
+                            out.index)
         st.ok, st.obs = True, len(cape)
         st.inicio, st.fim = str(cape.index.min().date()), str(cape.index.max().date())
     except Exception as exc:  # noqa: BLE001
@@ -196,14 +237,36 @@ def build_ibov(status: Status):
         st.detalhe = (f"DFP {dfp['data_fim'].min().date()}..{dfp['data_fim'].max().date()}"
                       + (f" | ITR {itr['data_fim'].min().date()}..{itr['data_fim'].max().date()}"
                          if not itr.empty else " | ITR ausente"))
+        cvm.salvar_cache(lucros, st.detalhe)
     except Exception as exc:  # noqa: BLE001
-        st.detalhe = str(exc)[:400]
-        log.error("lucros_cvm falhou: %s", str(exc)[:300])
+        st.detalhe = str(exc)[:600]
+        log.error("lucros_cvm falhou: %s", str(exc)[:400])
+        # Onde a conexao quebrou, em vez de "Max retries exceeded".
+        try:
+            diag = cvm.diagnostico_conectividade()
+            st.detalhe += " || diagnostico: " + json.dumps(diag, ensure_ascii=False)
+            log.error("diagnostico CVM: %s", diag)
+        except Exception as exc2:  # noqa: BLE001
+            log.warning("diagnostico da CVM falhou: %s", exc2)
+        # Cache: dado real de uma coleta anterior, com idade declarada.
+        cache, meta = cvm.carregar_cache()
+        if not cache.empty:
+            lucros = cache
+            st.ok, st.obs = True, len(cache)
+            idade = meta.get("idade_dias", "?")
+            st.detalhe = (f"CACHE de {meta.get('coletado_em_utc', '?')} ({idade} dias); "
+                          f"{meta.get('data_fim_min', '?')}..{meta.get('data_fim_max', '?')}. "
+                          f"CVM indisponivel agora: {st.detalhe[:220]}")
+            status.avisos.append(
+                f"Lucros da CVM vindos do CACHE local, coletado ha {idade} dias. "
+                f"Sao numeros de uma coleta real anterior, nao estimativas -- mas "
+                f"exercicios divulgados depois dessa data NAO estao aqui.")
+            log.warning("usando cache da CVM (%d linhas, %s dias)", len(cache), idade)
     status.add(st)
     if lucros.empty:
         status.avisos.append(
-            "Sem lucros da CVM: a serie de valuation do IBOV nao foi construida. "
-            "O portal da CVM nao respondeu a partir do runner -- ver ESTADO.md.")
+            "Sem lucros da CVM e sem cache: a serie de valuation do IBOV nao foi "
+            "construida. Ver ESTADO.md para o estado do bloqueio.")
         return out, comp
 
     # --- Conciliacao composicao B3 <-> companhias CVM -----------------------
@@ -258,8 +321,11 @@ def build_ibov(status: Status):
         trim = (sel[sel["freq"] == "T"].groupby("data_fim")["lucro"].sum().sort_index())
         ttm_trim = metrics.ttm_from_quarterly(trim) if not trim.empty else pd.Series(dtype=float)
 
-        lucro_diario_a = metrics.step_to_daily(anual, out.index, REPORTING_LAG_DAYS_PIT)
-        lucro_diario_t = (metrics.step_to_daily(ttm_trim, out.index, REPORTING_LAG_DAYS_PIT)
+        lucro_diario_a = metrics.step_to_daily(
+            anual, out.index, REPORTING_LAG_DAYS_PIT, MAX_STALE_DAYS_LUCRO_ANUAL)
+        lucro_diario_t = (metrics.step_to_daily(
+                              ttm_trim, out.index, REPORTING_LAG_DAYS_PIT,
+                              MAX_STALE_DAYS_LUCRO_TRIMESTRAL)
                           if not ttm_trim.empty
                           else pd.Series(index=out.index, dtype="float64"))
         # O trimestral tem precedencia onde existe; o anual cobre o trecho antigo.
