@@ -1,5 +1,5 @@
 {
-  "gerado_em_utc": "2026-08-09T18:06:23+00:00",
+  "gerado_em_utc": "2026-08-09T18:11:21+00:00",
   "estagios": [
     {
       "nome": "precos_spx",
@@ -51,8 +51,8 @@
     },
     {
       "nome": "cadastro_b3",
-      "ok": false,
-      "detalhe": "cadastro da B3 sem 'results': chaves=['page', 'results']",
+      "ok": true,
+      "detalhe": "ponte codigo de negociacao -> CNPJ",
       "obs": 0,
       "inicio": "",
       "fim": ""
@@ -68,7 +68,6 @@
   ],
   "avisos": [
     "eps_spx: a fonte parou em 2024-06-01 e a ultima observacao venceu ha 677 dias. O trecho final da serie fica VAZIO em vez de repetir o ultimo valor -- ver METODOLOGIA.md, secao de validade.",
-    "Cadastro de listadas da B3 indisponivel: a conciliacao cai para razao social, que e menos confiavel. cadastro da B3 sem 'results': chaves=['page', 'results']",
     "5 CNPJ(s) apontam para mais de um codigo CVM e foram RECUSADOS em vez de desempatados por criterio arbitrario.",
     "SERIE DO IBOV SUPRIMIDA: cobertura de 44.3% do peso do indice, abaixo do minimo de 80%. Publicar um agregado que deixa de fora parte relevante do indice produziria um numero que nao e o do Ibovespa. Ver LIMITACOES.md, secao 3."
   ],
