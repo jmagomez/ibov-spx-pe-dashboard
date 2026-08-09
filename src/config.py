@@ -38,6 +38,15 @@ B3_INDEX_PORTFOLIO = (
     "https://sistemaswebb3-listados.b3.com.br/indexProxy/indexCall/GetPortfolioDay/"
 )
 
+# B3 - cadastro de companhias listadas. E a ponte entre o codigo de negociacao
+# (unico identificador que a carteira do indice traz) e o CNPJ (unico
+# identificador que a CVM aceita). Sem ela a conciliacao volta a depender de
+# razao social, que casou 47,9% do peso do indice.
+B3_LISTED_COMPANIES = (
+    "https://sistemaswebb3-listados.b3.com.br/listedCompaniesProxy/CompanyCall/"
+    "GetInitialCompanies/"
+)
+
 # CVM - dados abertos de companhias abertas.
 CVM_DFP_BASE = "https://dados.cvm.gov.br/dados/CIA_ABERTA/DOC/DFP/DADOS/"
 CVM_ITR_BASE = "https://dados.cvm.gov.br/dados/CIA_ABERTA/DOC/ITR/DADOS/"

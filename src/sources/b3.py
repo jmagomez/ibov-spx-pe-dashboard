@@ -14,7 +14,7 @@ import logging
 
 import pandas as pd
 
-from ..config import B3_INDEX_PORTFOLIO
+from ..config import B3_INDEX_PORTFOLIO, B3_LISTED_COMPANIES
 from .http import SourceUnavailable, get
 
 log = logging.getLogger(__name__)
@@ -57,3 +57,50 @@ def fetch_ibov_composition() -> pd.DataFrame:
         raise SourceUnavailable(f"payload da B3 sem coluna de codigo: {list(df.columns)}")
     log.info("Ibovespa: %d ativos na carteira vigente", len(df))
     return df
+
+
+def fetch_empresas_listadas() -> pd.DataFrame:
+    """Cadastro de companhias listadas: raiz do codigo de negociacao e CNPJ.
+
+    A carteira do indice traz o codigo (VALE3) e o nome de pregao (VALE); nao
+    traz CNPJ. A CVM identifica companhia por CNPJ e codigo CVM; nao conhece
+    codigo de negociacao. Este cadastro e o unico ponto em que os dois universos
+    se tocam, e por isso a conciliacao depende dele.
+
+    Endpoint interno do portal, sem contrato publico -- mesmo risco ja registrado
+    para a carteira. Se a resposta vier sem campo de CNPJ, a funcao levanta
+    excecao com a lista de campos recebidos, para que a mudanca de layout apareca
+    no diagnostico em vez de virar cobertura baixa sem explicacao.
+    """
+    params = {"language": "pt-br", "pageNumber": 1, "pageSize": 500}
+    token = base64.b64encode(json.dumps(params).encode()).decode()
+    raw = get(B3_LISTED_COMPANIES + token,
+              headers={"Accept": "application/json",
+                       "Referer": "https://sistemaswebb3-listados.b3.com.br/"})
+    try:
+        payload = json.loads(raw.decode("utf-8"))
+    except Exception as exc:  # noqa: BLE001
+        raise SourceUnavailable(f"cadastro da B3 nao e JSON valido: {exc}") from exc
+
+    results = payload.get("results")
+    if not results:
+        raise SourceUnavailable(f"cadastro da B3 sem 'results': chaves={list(payload)}")
+
+    df = pd.DataFrame(results)
+    campos = list(df.columns)
+    col_cnpj = next((c for c in campos if c.lower() in ("cnpj", "companycnpj")), None)
+    col_raiz = next((c for c in campos
+                     if c.lower() in ("issuingcompany", "codecvm", "code", "tradingname")), None)
+    if col_cnpj is None or col_raiz is None:
+        raise SourceUnavailable(
+            f"cadastro da B3 sem campo de CNPJ ou de codigo; campos recebidos: {campos}")
+
+    out = pd.DataFrame({
+        "raiz": df[col_raiz].astype(str).str.upper().str.replace(r"[^A-Z]", "", regex=True).str[:4],
+        "cnpj": df[col_cnpj].astype(str),
+        "nome": df.get("companyName", pd.Series([""] * len(df))).astype(str),
+    })
+    out = out[(out["raiz"] != "") & (out["cnpj"] != "")].drop_duplicates("raiz")
+    log.info("B3: %d companhias listadas com CNPJ (campos: %s / %s)", len(out),
+             col_raiz, col_cnpj)
+    return out
