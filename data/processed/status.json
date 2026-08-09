@@ -1,5 +1,5 @@
 {
-  "gerado_em_utc": "2026-08-09T14:33:24+00:00",
+  "gerado_em_utc": "2026-08-09T14:48:38+00:00",
   "estagios": [
     {
       "nome": "precos_spx",
@@ -11,16 +11,16 @@
     },
     {
       "nome": "eps_spx",
-      "ok": false,
-      "detalhe": "spdji: https://www.spglobal.com/spdji/en/documents/additional-material/sp-500-eps-est.xlsx indisponivel apos 3 tentativas: HTTPError: 403 Client Error: Forbi | shiller: nenhuma coluna de CAPE da planilha Shiller ficou na faixa plausivel [3, 100]; recusadas: 'cape' (mediana=0.03362)",
-      "obs": 0,
+      "ok": true,
+      "detalhe": "fonte: planilha Shiller (coluna E, LPA 12m mensal) -- S&P DJI indisponivel",
+      "obs": 3709,
       "inicio": "",
       "fim": ""
     },
     {
       "nome": "cape_shiller",
       "ok": false,
-      "detalhe": "nenhuma coluna de CAPE da planilha Shiller ficou na faixa plausivel [3, 100]; recusadas: 'cape' (mediana=0.03362)",
+      "detalhe": "serie CAPE vazia",
       "obs": 0,
       "inicio": "",
       "fim": ""
@@ -43,15 +43,32 @@
     },
     {
       "nome": "lucros_cvm",
-      "ok": false,
-      "detalhe": "nenhum ano de DFP obtido. 2010: zip da CVM sem arquivo contendo 'dre_con': ['dfp_cia_aberta_2010.csv', 'dfp_cia_aberta_BPA_con_2010.csv', 'dfp_cia_abert | 2011: zip da CVM sem arquivo contendo 'dre_con': ['dfp_cia_aberta_2011.csv', 'dfp_cia_aberta_BPA_con_2011.csv', 'dfp_cia_abert | 2012: zip da CVM sem arquivo contendo 'dre_con': ['dfp_cia_aberta_2012.csv', 'dfp_cia_aberta_BPA_con_2012.csv', 'dfp_cia_abert || diagnostico: {\"url\": \"https://dados.cvm.gov.br/dados/CIA_ABERTA/DOC/DFP/DADOS/dfp_cia_aberta_2023.zip\", \"host\": \"dados.cvm.gov.br\", \"porta\": 443, \"dns\": [\"45.7.170.66\"], \"tcp\": \"ok\", \"tls\": \"TLSv1.3\", \"http\": 200, \"content_type\": \"application/zip\"}",
-      "obs": 0,
+      "ok": true,
+      "detalhe": "DFP 2010-12-31..2025-12-31 | ITR 2021-03-31..2026-06-30",
+      "obs": 13705,
+      "inicio": "",
+      "fim": ""
+    },
+    {
+      "nome": "conciliacao_ibov",
+      "ok": true,
+      "detalhe": "39/78 ativos conciliados; cobertura por peso = 47.9%",
+      "obs": 39,
       "inicio": "",
       "fim": ""
     }
   ],
   "avisos": [
-    "Sem lucros da CVM e sem cache: a serie de valuation do IBOV nao foi construida. Ver ESTADO.md para o estado do bloqueio."
+    "eps_spx: a fonte parou em 2024-06-01 e a ultima observacao venceu ha 677 dias. O trecho final da serie fica VAZIO em vez de repetir o ultimo valor -- ver METODOLOGIA.md, secao de validade.",
+    "SERIE DO IBOV SUPRIMIDA: cobertura de 47.9% do peso do indice, abaixo do minimo de 80%. Publicar um agregado que deixa de fora parte relevante do indice produziria um numero que nao e o do Ibovespa. Ver LIMITACOES.md, secao 3."
   ],
-  "vigencias": []
+  "vigencias": [
+    {
+      "fonte": "eps_spx",
+      "ultima_observacao": "2024-06-01",
+      "vigente_ate": "2024-09-29",
+      "defasagem_dias": 797,
+      "vencida": true
+    }
+  ]
 }
