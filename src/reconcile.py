@@ -1,6 +1,6 @@
 """Conciliacao entre a carteira do Ibovespa (B3) e as companhias da CVM.
 
-Por que CNPJ e nao razao social. A B3 devolve nome de pregao ("VALE", "ITAUUNIBANCO")
+Por que nao razao social. A B3 devolve nome de pregao ("VALE", "ITAUUNIBANCO")
 e a CVM devolve razao social ("VALE S.A.", "ITAU UNIBANCO HOLDING S.A."). Casar
 os dois por texto normalizado acertou 39 dos 78 ativos -- 47,9% do peso do
 indice -- e o portao de cobertura suprimiu a serie, corretamente. Nome nao e
@@ -13,17 +13,26 @@ a serie de lucro de uma mesma companhia aparece sob dois CNPJs em anos
 diferentes. Amarrar a conciliacao ao CNPJ vigente perderia todo o historico
 anterior a troca -- silenciosamente, que e o pior modo de perder dado.
 
-O codigo CVM (CD_CVM) sobrevive a essas trocas: e o registro da companhia
-perante o regulador, nao a inscricao fiscal. Entao:
+E ha uma segunda armadilha, transversal: um grupo economico tem VARIOS CNPJs ao
+mesmo tempo, e o que a B3 publica no cadastro nem sempre e o da entidade que
+entrega a DFP. Com ITUB4, PETR3 e PETR4 foi exatamente isso -- CNPJ valido, do
+grupo certo, da entidade errada. Juntos respondiam por 20 dos 31 pontos de peso
+que ficaram de fora.
 
-  - o CNPJ e usado para ENTRAR (e o unico identificador que a B3 publica);
-  - o CD_CVM e a chave em que a conciliacao se apoia;
-  - o mapa CNPJ -> CD_CVM e construido a partir de TODOS os anos coletados, e
-    nao do cadastro vigente, de modo que um CNPJ antigo continue resolvendo.
+Dai a ordem de preferencia:
 
-As trocas encontradas sao reportadas, com os anos de cada numero. Nao sao
-tratadas como erro: sao um fato do registro societario brasileiro, e o valor
-esta em enxerga-las.
+  1. codeCVM  - o proprio cadastro da B3 publica o codigo CVM. E a ligacao
+                DIRETA com o registro no regulador e nao depende de qual
+                entidade do grupo foi cadastrada. So e aceito se aparecer nos
+                dados da CVM: nao se confia no cadastro por fe.
+  2. CNPJ     - segunda opcao, resolvida pelo mapa historico abaixo.
+  3. Razao social - ultima, e sinalizada como tal no relatorio.
+
+O mapa CNPJ -> CD_CVM e construido a partir de TODOS os anos coletados, e nao do
+cadastro vigente, de modo que um CNPJ antigo continue resolvendo. As trocas
+encontradas sao reportadas, com os anos de cada numero. Nao sao tratadas como
+erro: sao um fato do registro societario brasileiro, e o valor esta em
+enxerga-las.
 """
 from __future__ import annotations
 
@@ -113,36 +122,59 @@ def mapa_cnpj_cdcvm(lucros: pd.DataFrame) -> tuple[dict, list, list]:
 
 def conciliar(composicao: pd.DataFrame, empresas_b3: pd.DataFrame,
               lucros: pd.DataFrame) -> tuple[pd.DataFrame, float, dict]:
-    """Liga carteira -> CNPJ -> CD_CVM. Devolve (casadas, cobertura_por_peso, relatorio).
+    """Liga carteira -> companhia da CVM. Devolve (casadas, cobertura, relatorio).
 
     `empresas_b3` e a ponte: a carteira do indice traz o codigo de negociacao,
-    mas nao o CNPJ; o cadastro de companhias listadas traz os dois.
+    mas nao os identificadores; o cadastro de companhias listadas traz os dois.
 
     A cobertura e medida POR PESO, nao por contagem de ativos. Vinte ativos
     pequenos conciliados nao compensam a ausencia de um que sozinho responde por
     um decimo do indice.
     """
-    rel = {"por_cnpj": 0, "por_nome": 0, "sem_correspondencia": [],
-           "trocas_de_cnpj": [], "cnpj_ambiguo": []}
+    rel = {"por_codigo_cvm": 0, "por_cnpj": 0, "por_nome": 0,
+           "sem_correspondencia": [], "trocas_de_cnpj": [], "cnpj_ambiguo": []}
     if composicao.empty or lucros.empty:
         return pd.DataFrame(), 0.0, rel
 
     mapa, trocas, ambiguos = mapa_cnpj_cdcvm(lucros)
     rel["trocas_de_cnpj"], rel["cnpj_ambiguo"] = trocas, ambiguos
 
-    # raiz do ticker -> CNPJ, a partir do cadastro de listadas da B3
-    raiz_para_cnpj = {}
-    if not empresas_b3.empty and {"raiz", "cnpj"} <= set(empresas_b3.columns):
+    # raiz do ticker -> identificadores, a partir do cadastro de listadas da B3.
+    #
+    # DUAS pontes, nesta ordem de preferencia:
+    #
+    #   codeCVM - ligacao direta com o registro na CVM. E a mais forte porque
+    #             nao depende de qual entidade do grupo a B3 escolheu cadastrar.
+    #   CNPJ    - segunda opcao. Um grupo economico tem varios CNPJs, e o que a
+    #             B3 publica nem sempre e o da entidade que entrega a DFP. Foi
+    #             exatamente o que aconteceu com ITUB4, PETR3 e PETR4: CNPJ
+    #             valido, presente no cadastro, que simplesmente nao e o do
+    #             declarante. Juntos, esses tres respondiam por 20 dos 31 pontos
+    #             de peso que ficaram de fora.
+    raiz_para_cnpj, raiz_para_cd = {}, {}
+    if not empresas_b3.empty and "raiz" in empresas_b3.columns:
+        tem_cnpj = "cnpj" in empresas_b3.columns
+        tem_cd = "cd_cvm" in empresas_b3.columns
         for _, r in empresas_b3.iterrows():
-            c = normalizar_cnpj(r["cnpj"])
-            if r["raiz"] and c:
-                raiz_para_cnpj[str(r["raiz"]).upper()] = c
+            raiz = str(r["raiz"]).upper()
+            if not raiz:
+                continue
+            if tem_cnpj:
+                c = normalizar_cnpj(r["cnpj"])
+                if c:
+                    raiz_para_cnpj[raiz] = c
+            if tem_cd:
+                cd = str(r["cd_cvm"]).strip().lstrip("0")
+                if cd and cd.isdigit():
+                    raiz_para_cd[raiz] = cd
 
-    # razao social -> cd_cvm, so para o resto que o CNPJ nao resolver
+    # razao social -> cd_cvm, so para o resto que os identificadores nao resolverem
     nome_para_cd = {}
     if "empresa" in lucros.columns:
         for _, r in lucros[["empresa", "cd_cvm"]].dropna().drop_duplicates().iterrows():
             nome_para_cd.setdefault(_norm_nome(r["empresa"]), str(r["cd_cvm"]).strip())
+
+    cds_conhecidos = set(lucros["cd_cvm"].astype(str).str.strip().str.lstrip("0").unique())
 
     linhas = []
     peso_total = float(composicao.get("participacao_pct", pd.Series(dtype=float)).sum() or 0.0)
@@ -152,8 +184,13 @@ def conciliar(composicao: pd.DataFrame, empresas_b3: pd.DataFrame,
         peso = float(row.get("participacao_pct") or 0.0)
         raiz = raiz_ticker(cod)
         cnpj = raiz_para_cnpj.get(raiz, "")
-        cd = mapa.get(cnpj, "") if cnpj else ""
-        via = "cnpj" if cd else ""
+        cd, via = "", ""
+        cd_direto = raiz_para_cd.get(raiz, "")
+        if cd_direto and cd_direto in cds_conhecidos:
+            cd, via = cd_direto, "codigo_cvm"
+        if not cd and cnpj:
+            cd = mapa.get(cnpj, "")
+            via = "cnpj" if cd else ""
         if not cd:
             cd = nome_para_cd.get(_norm_nome(row.get("empresa", "")), "")
             via = "nome" if cd else ""
@@ -161,7 +198,7 @@ def conciliar(composicao: pd.DataFrame, empresas_b3: pd.DataFrame,
             linhas.append({"codigo": cod, "raiz": raiz, "cnpj": cnpj, "cd_cvm": cd,
                            "via": via, "participacao_pct": peso})
             peso_casado += peso
-            rel["por_cnpj" if via == "cnpj" else "por_nome"] += 1
+            rel[{"codigo_cvm": "por_codigo_cvm", "cnpj": "por_cnpj"}.get(via, "por_nome")] += 1
         else:
             rel["sem_correspondencia"].append({"codigo": cod, "peso": round(peso, 3)})
 
