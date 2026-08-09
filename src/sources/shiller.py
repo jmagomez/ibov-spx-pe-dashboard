@@ -20,7 +20,8 @@ import math
 
 import pandas as pd
 
-from ..config import SHILLER_XLS, START_DATE
+from ..config import (CAPE_MAX_PLAUSIVEL, CAPE_MIN_PLAUSIVEL, SHILLER_XLS,
+                      START_DATE)
 from .http import SourceUnavailable, get
 
 log = logging.getLogger(__name__)
@@ -62,6 +63,59 @@ def _abrir_tabela() -> pd.DataFrame:
     return df
 
 
+def cape_plausivel(serie: pd.Series) -> bool:
+    """Uma coluna so e aceita como CAPE se a mediana couber na faixa historica."""
+    v = pd.to_numeric(serie, errors="coerce").dropna()
+    if v.size < 24:
+        return False
+    return bool(CAPE_MIN_PLAUSIVEL <= float(v.median()) <= CAPE_MAX_PLAUSIVEL)
+
+
+def _escolher_cape(df: pd.DataFrame, body: pd.DataFrame, cols: list, h: int):
+    """Escolhe a coluna de CAPE por rotulo E por plausibilidade do valor.
+
+    A selecao anterior era `primeira coluna cujo cabecalho contem "cape"`. A aba
+    Data traz, lado a lado, "CAPE", "TR CAPE" e "Excess CAPE Yield" -- as tres
+    casam com a substring, e a terceira e um RENDIMENTO, da ordem de 0,02. Foi
+    o que acabou publicado em 08/08/2026: a serie rotulada CAPE no dashboard ia
+    de 0,01 a 0,06, quando o CAPE do S&P 500 nunca saiu da faixa de um digito a
+    quarenta e poucos em cem anos de historia.
+
+    Um rotulo certo com valor absurdo continua sendo valor absurdo. Por isso a
+    escolha passa pelos dois crivos: preferencia por rotulo exato, e recusa de
+    qualquer coluna cuja mediana nao caiba na faixa historica do indicador.
+    """
+    rotulos = {c: str(df.iloc[h][c]).strip().lower() for c in cols}
+
+    def _pontuar(rotulo: str) -> int:
+        if "yield" in rotulo or "excess" in rotulo:
+            return -1          # rendimento, nao multiplo
+        if rotulo == "cape":
+            return 3
+        if rotulo.startswith("cape"):
+            return 2
+        if "cape" in rotulo:
+            return 1
+        return -1
+
+    candidatos = sorted(((_pontuar(r), c) for c, r in rotulos.items() if _pontuar(r) > 0),
+                        key=lambda t: -t[0])
+    recusadas = []
+    for _, c in candidatos:
+        serie = pd.to_numeric(body[c], errors="coerce")
+        if cape_plausivel(serie):
+            return serie, rotulos[c]
+        v = serie.dropna()
+        recusadas.append(f"'{rotulos[c]}' (mediana={float(v.median()):.4g})"
+                         if v.size else f"'{rotulos[c]}' (vazia)")
+    if candidatos:
+        raise SourceUnavailable(
+            "nenhuma coluna de CAPE da planilha Shiller ficou na faixa plausivel "
+            f"[{CAPE_MIN_PLAUSIVEL:g}, {CAPE_MAX_PLAUSIVEL:g}]; recusadas: "
+            + ", ".join(recusadas))
+    return pd.Series(index=body.index, dtype="float64"), "ausente"
+
+
 def fetch_tabela() -> pd.DataFrame:
     """DataFrame mensal com colunas: preco, lucro_ttm, cape.
 
@@ -78,10 +132,7 @@ def fetch_tabela() -> pd.DataFrame:
     preco = pd.to_numeric(body[cols[1]], errors="coerce")
     lucro = pd.to_numeric(body[cols[3]], errors="coerce")
 
-    cape_col = next((c for c in cols
-                     if "cape" in str(df.iloc[h][c]).strip().lower()), None)
-    cape = (pd.to_numeric(body[cape_col], errors="coerce")
-            if cape_col is not None else pd.Series(index=body.index, dtype="float64"))
+    cape, cape_rotulo = _escolher_cape(df, body, cols, h)
 
     out = pd.DataFrame({"preco": preco.values, "lucro_ttm": lucro.values,
                         "cape": cape.values}, index=datas)
@@ -91,9 +142,11 @@ def fetch_tabela() -> pd.DataFrame:
     if out["lucro_ttm"].notna().sum() < 12:
         raise SourceUnavailable(
             "coluna de lucro da planilha Shiller nao parece numerica; layout mudou")
-    log.info("Shiller: %d meses de %s a %s (lucro=%d, cape=%d)", len(out),
+    out.attrs["cape_rotulo"] = cape_rotulo
+    log.info("Shiller: %d meses de %s a %s (lucro=%d, cape=%d via '%s')", len(out),
              out.index.min().date(), out.index.max().date(),
-             int(out["lucro_ttm"].notna().sum()), int(out["cape"].notna().sum()))
+             int(out["lucro_ttm"].notna().sum()), int(out["cape"].notna().sum()),
+             cape_rotulo)
     return out
 
 

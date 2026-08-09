@@ -64,3 +64,49 @@ TTM_QUARTERS = 4
 
 # Janela para z-score e percentil historico (dias uteis). 2520 ~ 10 anos.
 STAT_WINDOW = 2520
+
+# --- Validade da ultima observacao de cada fonte ----------------------------
+# O ffill de uma serie-degrau estende o ultimo valor para sempre. Sem um teto,
+# uma fonte que para de ser atualizada continua alimentando o dashboard com um
+# denominador vencido -- e o grafico nao muda de aparencia. Os limites abaixo
+# definem por quanto tempo a ultima observacao de cada fonte ainda tem lastro.
+#
+# EPS trimestral: 92 dias de trimestre + 45 dias de prazo de divulgacao + folga.
+MAX_STALE_DAYS_EPS_TRIMESTRAL = 180
+# EPS mensal (planilha Shiller): serie mensal, tolerancia de um trimestre.
+MAX_STALE_DAYS_EPS_MENSAL = 120
+# CAPE: mensal, mesma tolerancia.
+MAX_STALE_DAYS_CAPE = 120
+# Lucro anual (DFP): exercicio + 3 meses de prazo regulatorio + folga de um ano,
+# porque a serie anual e degrau por construcao e vale ate o exercicio seguinte.
+MAX_STALE_DAYS_LUCRO_ANUAL = 550
+MAX_STALE_DAYS_LUCRO_TRIMESTRAL = 200
+
+# --- Faixa de plausibilidade do CAPE ---------------------------------------
+# O CAPE do S&P 500 oscilou entre ~5 (1920, 1982) e ~44 (2000) em toda a serie
+# de Shiller. Uma leitura fora de [3, 100] nao e um CAPE: e coluna errada.
+# A planilha traz, lado a lado, "CAPE", "TR CAPE" e "Excess CAPE Yield" -- e a
+# ultima, sendo um rendimento (~0,02), passa despercebida se a selecao de
+# coluna for por substring. A verificacao abaixo existe por causa disso.
+CAPE_MIN_PLAUSIVEL = 3.0
+CAPE_MAX_PLAUSIVEL = 100.0
+
+# --- Espelhos e alternativas ------------------------------------------------
+# O host da CVM recusou conexao a partir do runner do GitHub Actions em todas as
+# execucoes ate 08/08/2026. Manter o esquema http como alternativa custa nada e
+# distingue bloqueio de TLS de bloqueio de rota.
+CVM_DFP_BASES = (
+    "https://dados.cvm.gov.br/dados/CIA_ABERTA/DOC/DFP/DADOS/",
+    "http://dados.cvm.gov.br/dados/CIA_ABERTA/DOC/DFP/DADOS/",
+)
+CVM_ITR_BASES = (
+    "https://dados.cvm.gov.br/dados/CIA_ABERTA/DOC/ITR/DADOS/",
+    "http://dados.cvm.gov.br/dados/CIA_ABERTA/DOC/ITR/DADOS/",
+)
+
+# Cache de lucros ja coletados da CVM. NAO e dado sintetico: e o proprio
+# resultado de uma coleta bem-sucedida, com a data em que foi obtido gravada
+# junto. Quando a CVM nao responde, o pipeline usa o cache e ANUNCIA que usou,
+# com a idade em dias. Se o cache nao existir, a serie do IBOV fica vazia.
+CVM_CACHE = PROCESSED / "lucros_cvm.csv"
+CVM_CACHE_META = PROCESSED / "lucros_cvm_meta.json"

@@ -45,7 +45,7 @@ def annual_to_step(annual: pd.Series) -> pd.Series:
 # ---------------------------------------------------------------------------
 
 def step_to_daily(step: pd.Series, daily_index: pd.DatetimeIndex,
-                  lag_days: int = 0) -> pd.Series:
+                  lag_days: int = 0, max_stale_days: int | None = None) -> pd.Series:
     """Projeta uma serie-degrau de lucro sobre datas diarias de pregao.
 
     `lag_days` desloca a data de vigencia de cada observacao para frente,
@@ -55,6 +55,19 @@ def step_to_daily(step: pd.Series, daily_index: pd.DatetimeIndex,
 
     Antes da primeira data de vigencia o resultado e NaN. Nao ha extrapolacao
     para tras: o P/E simplesmente nao existe nesse trecho.
+
+    `max_stale_days` limita ate quando a ULTIMA observacao continua valendo.
+    Sem esse limite, o `ffill` estende indefinidamente o ultimo valor da fonte
+    para frente -- e foi exatamente o que aconteceu na serie publicada em
+    08/08/2026: a planilha Shiller parou em 09/2024 e o dashboard seguiu
+    exibindo P/E ate 08/2026 com um LPA de dois anos atras, o que INFLA o
+    multiplo sem que nada na tela indique o problema. Um trecho vazio no fim do
+    grafico e um resultado; um multiplo calculado com denominador vencido e um
+    numero errado com aparencia de certo.
+
+    O limite so corta a cauda: buracos internos entre duas observacoes reais
+    continuam preenchidos pelo degrau, que e o comportamento correto para uma
+    serie de lucro que so muda quando ha nova divulgacao.
     """
     if step.empty:
         return pd.Series(index=daily_index, dtype="float64")
@@ -65,7 +78,27 @@ def step_to_daily(step: pd.Series, daily_index: pd.DatetimeIndex,
     shifted.index = s.index + pd.Timedelta(days=lag_days)
     shifted = shifted[~shifted.index.duplicated(keep="last")]
     out = shifted.reindex(shifted.index.union(daily_index)).ffill()
-    return out.reindex(daily_index)
+    out = out.reindex(daily_index)
+    if max_stale_days is not None:
+        limite = shifted.index.max() + pd.Timedelta(days=int(max_stale_days))
+        out = out.where(pd.DatetimeIndex(out.index) <= limite)
+    return out
+
+
+def vencimento(step: pd.Series, lag_days: int, max_stale_days: int) -> pd.Timestamp:
+    """Data a partir da qual a serie-degrau deixa de ter lastro."""
+    s = step.sort_index().dropna()
+    if s.empty:
+        return pd.NaT
+    return s.index.max() + pd.Timedelta(days=int(lag_days + max_stale_days))
+
+
+def defasagem_dias(step: pd.Series, referencia: pd.Timestamp) -> int:
+    """Quantos dias a ultima observacao da fonte esta atras da data de referencia."""
+    s = step.sort_index().dropna()
+    if s.empty:
+        return -1
+    return int((pd.Timestamp(referencia) - s.index.max()).days)
 
 
 # ---------------------------------------------------------------------------
