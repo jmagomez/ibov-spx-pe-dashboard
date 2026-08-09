@@ -132,3 +132,53 @@ def test_sem_cadastro_da_b3_a_conciliacao_nao_quebra():
     _, cobertura, rel = conciliar(composicao, pd.DataFrame(), lucros)
     assert rel["por_cnpj"] == 0 and rel["por_nome"] == 1
     assert cobertura == 1.0
+
+
+# ---------------------------------------------------------------------------
+# Leitura do cadastro da B3
+# ---------------------------------------------------------------------------
+
+def test_cadastro_b3_escolhe_a_coluna_por_prioridade_e_nao_por_ordem():
+    """Regressao da execucao #9, que terminou "ok" com zero registros.
+
+    A escolha de coluna era `primeira coluna do payload cujo nome esteja na
+    lista` -- ou seja, quem mandava na prioridade era a ordem da resposta da B3,
+    nao a minha. codeCVM vem antes de issuingCompany, a raiz do ticker passou a
+    ser extraida de um numero, sobrou string vazia em todas as linhas e o filtro
+    apagou a tabela inteira. O estagio reportou sucesso com zero linhas, que e
+    pior do que ter falhado.
+    """
+    import json
+    import unittest.mock as mock
+
+    from src.sources import b3
+
+    payload = {"page": {"totalPages": 1}, "results": [
+        {"codeCVM": "906", "issuingCompany": "VALE",
+         "companyName": "VALE S.A.", "cnpj": "33592510000154"},
+        {"codeCVM": "9512", "issuingCompany": "PETR",
+         "companyName": "PETROLEO BRASILEIRO S.A.", "cnpj": "33000167000101"},
+    ]}
+    with mock.patch.object(b3, "get", return_value=json.dumps(payload).encode()):
+        out = b3.fetch_empresas_listadas()
+    assert list(out["raiz"]) == ["VALE", "PETR"], "a raiz vem de issuingCompany"
+    assert list(out["cnpj"]) == ["33592510000154", "33000167000101"]
+
+
+def test_cadastro_b3_vazio_apos_filtro_e_erro_e_nao_sucesso():
+    """Receber registros e nao extrair nenhum par utilizavel e falha, nao 'ok'."""
+    import json
+    import unittest.mock as mock
+
+    import pytest
+
+    from src.sources import b3
+    from src.sources.http import SourceUnavailable
+
+    payload = {"page": {"totalPages": 1}, "results": [
+        {"issuingCompany": "1234", "companyName": "X", "cnpj": ""},
+    ]}
+    with mock.patch.object(b3, "get", return_value=json.dumps(payload).encode()):
+        with pytest.raises(SourceUnavailable) as e:
+            b3.fetch_empresas_listadas()
+    assert "nenhum par" in str(e.value)

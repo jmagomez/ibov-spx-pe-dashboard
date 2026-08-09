@@ -108,19 +108,46 @@ def fetch_empresas_listadas() -> pd.DataFrame:
 
     df = pd.DataFrame(linhas)
     campos = list(df.columns)
-    col_cnpj = next((c for c in campos if c.lower() in ("cnpj", "companycnpj")), None)
-    col_raiz = next((c for c in campos
-                     if c.lower() in ("issuingcompany", "codecvm", "code", "tradingname")), None)
+
+    def _escolher(preferencia: tuple) -> str | None:
+        """Escolhe por ORDEM DE PREFERENCIA, nao pela ordem das colunas.
+
+        A versao anterior usava next(c for c in campos if c.lower() in {...}),
+        que devolve a primeira COLUNA do payload cujo nome esteja no conjunto --
+        a prioridade era a da B3, nao a minha. Como codeCVM vem antes de
+        issuingCompany na resposta, a raiz foi extraida de um numero, sobrou
+        string vazia em todas as linhas, o filtro apagou tudo e o estagio
+        terminou "ok" com zero registros. Falha silenciosa: o pior desfecho.
+        """
+        for alvo in preferencia:
+            for c in campos:
+                if c.lower() == alvo:
+                    return c
+        return None
+
+    col_cnpj = _escolher(("cnpj", "companycnpj"))
+    col_raiz = _escolher(("issuingcompany", "tradingname", "code"))
     if col_cnpj is None or col_raiz is None:
         raise SourceUnavailable(
             f"cadastro da B3 sem campo de CNPJ ou de codigo; campos recebidos: {campos}")
 
     out = pd.DataFrame({
         "raiz": df[col_raiz].astype(str).str.upper().str.replace(r"[^A-Z]", "", regex=True).str[:4],
-        "cnpj": df[col_cnpj].astype(str),
+        "cnpj": df[col_cnpj].astype(str).map(lambda v: "" if v.lower() in ("none", "nan") else v),
         "nome": df.get("companyName", pd.Series([""] * len(df))).astype(str),
     })
     out = out[(out["raiz"] != "") & (out["cnpj"] != "")].drop_duplicates("raiz")
+
+    # Estagio "ok" com zero linhas nao e sucesso: e uma falha que nao avisou.
+    # Depois de ter recebido registros da B3, uma tabela vazia so pode vir de
+    # leitura errada dos campos, e isso precisa aparecer como erro.
+    if out.empty:
+        amostra = {c: str(df[c].iloc[0])[:40] for c in campos[:10]}
+        raise SourceUnavailable(
+            f"cadastro da B3: {len(df)} registros recebidos mas nenhum par "
+            f"(codigo, CNPJ) utilizavel. Campos={campos}; colunas escolhidas="
+            f"{col_raiz}/{col_cnpj}; primeira linha={amostra}")
+
     log.info("B3: %d companhias listadas com CNPJ em %d pagina(s) (campos: %s / %s)",
              len(out), pagina - 1, col_raiz, col_cnpj)
     return out
