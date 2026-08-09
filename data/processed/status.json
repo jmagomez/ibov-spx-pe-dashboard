@@ -1,5 +1,5 @@
 {
-  "gerado_em_utc": "2026-08-08T23:00:04+00:00",
+  "gerado_em_utc": "2026-08-09T14:33:24+00:00",
   "estagios": [
     {
       "nome": "precos_spx",
@@ -11,19 +11,19 @@
     },
     {
       "nome": "eps_spx",
-      "ok": true,
-      "detalhe": "fonte: planilha Shiller (coluna E, LPA 12m mensal) -- S&P DJI indisponivel",
-      "obs": 4174,
+      "ok": false,
+      "detalhe": "spdji: https://www.spglobal.com/spdji/en/documents/additional-material/sp-500-eps-est.xlsx indisponivel apos 3 tentativas: HTTPError: 403 Client Error: Forbi | shiller: nenhuma coluna de CAPE da planilha Shiller ficou na faixa plausivel [3, 100]; recusadas: 'cape' (mediana=0.03362)",
+      "obs": 0,
       "inicio": "",
       "fim": ""
     },
     {
       "nome": "cape_shiller",
-      "ok": true,
-      "detalhe": "",
-      "obs": 177,
-      "inicio": "2010-01-01",
-      "fim": "2024-09-01"
+      "ok": false,
+      "detalhe": "nenhuma coluna de CAPE da planilha Shiller ficou na faixa plausivel [3, 100]; recusadas: 'cape' (mediana=0.03362)",
+      "obs": 0,
+      "inicio": "",
+      "fim": ""
     },
     {
       "nome": "precos_ibov",
@@ -44,13 +44,14 @@
     {
       "nome": "lucros_cvm",
       "ok": false,
-      "detalhe": "nenhum ano de DFP obtido. 2010: https://dados.cvm.gov.br/dados/CIA_ABERTA/DOC/DFP/DADOS/dfp_cia_aberta_2010.zip indisponivel apos 1 tentativas: HTTPSCon | 2011: https://dados.cvm.gov.br/dados/CIA_ABERTA/DOC/DFP/DADOS/dfp_cia_aberta_2011.zip indisponivel apos 1 tentativas: HTTPSCon | 2012: https://dados.cvm.gov.br/dados/CIA_ABERTA/DOC/DFP/DADOS/dfp_cia_aberta_2012.zip indisponivel apos 1 tentativas",
+      "detalhe": "nenhum ano de DFP obtido. 2010: zip da CVM sem arquivo contendo 'dre_con': ['dfp_cia_aberta_2010.csv', 'dfp_cia_aberta_BPA_con_2010.csv', 'dfp_cia_abert | 2011: zip da CVM sem arquivo contendo 'dre_con': ['dfp_cia_aberta_2011.csv', 'dfp_cia_aberta_BPA_con_2011.csv', 'dfp_cia_abert | 2012: zip da CVM sem arquivo contendo 'dre_con': ['dfp_cia_aberta_2012.csv', 'dfp_cia_aberta_BPA_con_2012.csv', 'dfp_cia_abert || diagnostico: {\"url\": \"https://dados.cvm.gov.br/dados/CIA_ABERTA/DOC/DFP/DADOS/dfp_cia_aberta_2023.zip\", \"host\": \"dados.cvm.gov.br\", \"porta\": 443, \"dns\": [\"45.7.170.66\"], \"tcp\": \"ok\", \"tls\": \"TLSv1.3\", \"http\": 200, \"content_type\": \"application/zip\"}",
       "obs": 0,
       "inicio": "",
       "fim": ""
     }
   ],
   "avisos": [
-    "Sem lucros da CVM: a serie de valuation do IBOV nao foi construida. O portal da CVM nao respondeu a partir do runner -- ver ESTADO.md."
-  ]
+    "Sem lucros da CVM e sem cache: a serie de valuation do IBOV nao foi construida. Ver ESTADO.md para o estado do bloqueio."
+  ],
+  "vigencias": []
 }
