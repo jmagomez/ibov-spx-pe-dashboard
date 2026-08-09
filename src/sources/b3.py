@@ -67,26 +67,46 @@ def fetch_empresas_listadas() -> pd.DataFrame:
     codigo de negociacao. Este cadastro e o unico ponto em que os dois universos
     se tocam, e por isso a conciliacao depende dele.
 
+    PAGINADO. Pedir pageSize=500 devolveu `{"page": ..., "results": []}` -- uma
+    resposta HTTP 200, bem formada, e vazia. O endpoint tem um teto de pagina e,
+    acima dele, nao recusa o pedido: devolve nada. Foi assim que a execucao #8
+    caiu para conciliacao por razao social sem que a causa fosse obvia. O laco
+    abaixo pede paginas pequenas e usa o total informado pelo proprio payload.
+
     Endpoint interno do portal, sem contrato publico -- mesmo risco ja registrado
     para a carteira. Se a resposta vier sem campo de CNPJ, a funcao levanta
     excecao com a lista de campos recebidos, para que a mudanca de layout apareca
     no diagnostico em vez de virar cobertura baixa sem explicacao.
     """
-    params = {"language": "pt-br", "pageNumber": 1, "pageSize": 500}
-    token = base64.b64encode(json.dumps(params).encode()).decode()
-    raw = get(B3_LISTED_COMPANIES + token,
-              headers={"Accept": "application/json",
-                       "Referer": "https://sistemaswebb3-listados.b3.com.br/"})
-    try:
-        payload = json.loads(raw.decode("utf-8"))
-    except Exception as exc:  # noqa: BLE001
-        raise SourceUnavailable(f"cadastro da B3 nao e JSON valido: {exc}") from exc
+    linhas, pagina, total_paginas, campos = [], 1, 1, []
+    while pagina <= total_paginas and pagina <= 20:
+        params = {"language": "pt-br", "pageNumber": pagina, "pageSize": 100}
+        token = base64.b64encode(json.dumps(params).encode()).decode()
+        raw = get(B3_LISTED_COMPANIES + token,
+                  headers={"Accept": "application/json",
+                           "Referer": "https://sistemaswebb3-listados.b3.com.br/"})
+        try:
+            payload = json.loads(raw.decode("utf-8"))
+        except Exception as exc:  # noqa: BLE001
+            raise SourceUnavailable(f"cadastro da B3 nao e JSON valido: {exc}") from exc
 
-    results = payload.get("results")
-    if not results:
-        raise SourceUnavailable(f"cadastro da B3 sem 'results': chaves={list(payload)}")
+        page_info = payload.get("page") or {}
+        total_paginas = int(page_info.get("totalPages") or 1)
+        res = payload.get("results") or []
+        if not res:
+            if pagina == 1:
+                raise SourceUnavailable(
+                    f"cadastro da B3 devolveu lista vazia na pagina 1; "
+                    f"page={page_info}, chaves={list(payload)}")
+            break
+        campos = list(res[0].keys())
+        linhas.extend(res)
+        pagina += 1
 
-    df = pd.DataFrame(results)
+    if not linhas:
+        raise SourceUnavailable("cadastro da B3 sem nenhum registro")
+
+    df = pd.DataFrame(linhas)
     campos = list(df.columns)
     col_cnpj = next((c for c in campos if c.lower() in ("cnpj", "companycnpj")), None)
     col_raiz = next((c for c in campos
@@ -101,6 +121,6 @@ def fetch_empresas_listadas() -> pd.DataFrame:
         "nome": df.get("companyName", pd.Series([""] * len(df))).astype(str),
     })
     out = out[(out["raiz"] != "") & (out["cnpj"] != "")].drop_duplicates("raiz")
-    log.info("B3: %d companhias listadas com CNPJ (campos: %s / %s)", len(out),
-             col_raiz, col_cnpj)
+    log.info("B3: %d companhias listadas com CNPJ em %d pagina(s) (campos: %s / %s)",
+             len(out), pagina - 1, col_raiz, col_cnpj)
     return out
