@@ -1,5 +1,5 @@
 {
-  "gerado_em_utc": "2026-08-09T18:23:03+00:00",
+  "gerado_em_utc": "2026-08-09T22:52:26+00:00",
   "estagios": [
     {
       "nome": "precos_spx",
@@ -44,7 +44,7 @@
     {
       "nome": "lucros_cvm",
       "ok": true,
-      "detalhe": "CACHE de 2026-08-09T18:12:39+00:00 (0 dias); 2010-12-31..2026-06-30. CVM indisponivel agora: nenhum ano de DFP obtido. 2010: https://dados.cvm.gov.br/dados/CIA_ABERTA/DOC/DFP/DADOS/dfp_cia_aberta_2010.zip -> SourceUnavailable: https://dados.cvm. | 2011: https://dados.cvm.gov.br/dados/CIA_ABERTA/DOC/DFP/DADOS/dfp",
+      "detalhe": "DFP 2010-12-31..2025-12-31 | ITR 2021-03-31..2026-06-30",
       "obs": 13705,
       "inicio": "",
       "fim": ""
@@ -53,14 +53,14 @@
       "nome": "cadastro_b3",
       "ok": true,
       "detalhe": "ponte codigo de negociacao -> CNPJ",
-      "obs": 1993,
+      "obs": 1997,
       "inicio": "",
       "fim": ""
     },
     {
       "nome": "conciliacao_ibov",
       "ok": true,
-      "detalhe": "56/78 ativos; cobertura por peso = 68.9%; 40 via CNPJ, 16 via razao social",
+      "detalhe": "56/78 ativos; cobertura por peso = 68.9%; 0 via CNPJ, 16 via razao social",
       "obs": 56,
       "inicio": "",
       "fim": ""
@@ -68,7 +68,6 @@
   ],
   "avisos": [
     "eps_spx: a fonte parou em 2024-06-01 e a ultima observacao venceu ha 677 dias. O trecho final da serie fica VAZIO em vez de repetir o ultimo valor -- ver METODOLOGIA.md, secao de validade.",
-    "Lucros da CVM vindos do CACHE local, coletado ha 0 dias. Sao numeros de uma coleta real anterior, nao estimativas -- mas exercicios divulgados depois dessa data NAO estao aqui.",
     "5 CNPJ(s) apontam para mais de um codigo CVM e foram RECUSADOS em vez de desempatados por criterio arbitrario.",
     "SERIE DO IBOV SUPRIMIDA: cobertura de 68.9% do peso do indice, abaixo do minimo de 80%. Publicar um agregado que deixa de fora parte relevante do indice produziria um numero que nao e o do Ibovespa. Ver LIMITACOES.md, secao 3."
   ],
@@ -82,7 +81,8 @@
     }
   ],
   "conciliacao": {
-    "por_cnpj": 40,
+    "por_codigo_cvm": 40,
+    "por_cnpj": 0,
     "por_nome": 16,
     "sem_correspondencia": [
       {
@@ -179,36 +179,36 @@
       {
         "cnpj": "08926302000105",
         "cd_cvm": [
-          "23493",
-          "27740"
+          "023493",
+          "027740"
         ]
       },
       {
         "cnpj": "09149503000106",
         "cd_cvm": [
-          "22110",
-          "23426"
+          "022110",
+          "023426"
         ]
       },
       {
         "cnpj": "42737954000121",
         "cd_cvm": [
-          "57886",
-          "80217"
+          "057886",
+          "080217"
         ]
       },
       {
         "cnpj": "59717553000102",
         "cd_cvm": [
-          "26034",
+          "026034",
           "902123"
         ]
       },
       {
         "cnpj": "62258884000136",
         "cd_cvm": [
-          "19631",
-          "25992"
+          "019631",
+          "025992"
         ]
       }
     ],
