@@ -1,10 +1,14 @@
-"""Testes da conciliacao B3 <-> CVM por CNPJ.
+"""Testes da conciliacao B3 <-> CVM.
 
 O caso central e o do CNPJ que muda. Uma companhia que trocou de inscricao em
 2018 aparece na CVM com um numero ate 2017 e outro a partir de 2018. Se a
 conciliacao se apoiar no CNPJ vigente, o lucro anterior a troca some -- e some
 em silencio, que e o modo mais perigoso de perder dado: a serie continua sendo
 desenhada, so que mais curta, e nada na tela diz por que.
+
+O segundo caso, descoberto na execucao #10, e transversal e nao temporal: um
+grupo economico tem varios CNPJs ao mesmo tempo, e o que a B3 publica nem sempre
+e o da entidade que declara.
 """
 from __future__ import annotations
 
@@ -163,6 +167,7 @@ def test_cadastro_b3_escolhe_a_coluna_por_prioridade_e_nao_por_ordem():
         out = b3.fetch_empresas_listadas()
     assert list(out["raiz"]) == ["VALE", "PETR"], "a raiz vem de issuingCompany"
     assert list(out["cnpj"]) == ["33592510000154", "33000167000101"]
+    assert list(out["cd_cvm"]) == ["906", "9512"]
 
 
 def test_cadastro_b3_vazio_apos_filtro_e_erro_e_nao_sucesso():
@@ -176,9 +181,65 @@ def test_cadastro_b3_vazio_apos_filtro_e_erro_e_nao_sucesso():
     from src.sources.http import SourceUnavailable
 
     payload = {"page": {"totalPages": 1}, "results": [
-        {"issuingCompany": "1234", "companyName": "X", "cnpj": ""},
+        {"issuingCompany": "1234", "companyName": "X", "cnpj": "", "codeCVM": ""},
     ]}
     with mock.patch.object(b3, "get", return_value=json.dumps(payload).encode()):
         with pytest.raises(SourceUnavailable) as e:
             b3.fetch_empresas_listadas()
     assert "nenhum par" in str(e.value)
+
+
+def test_codigo_cvm_tem_precedencia_sobre_cnpj_do_grupo():
+    """ITUB4, PETR3 e PETR4 falharam com CNPJ valido -- e da entidade errada.
+
+    Um grupo economico tem varios CNPJs, e o que a B3 publica no cadastro nem
+    sempre e o da entidade que entrega a DFP. Nesses tres casos o CNPJ existia,
+    estava correto como CNPJ, e apontava para uma companhia que nao declara --
+    logo, nao resolvia. Juntos respondiam por 20 dos 31 pontos de peso que
+    ficaram de fora na execucao #10.
+
+    O codeCVM que a propria B3 publica e a ligacao direta com o registro na CVM
+    e nao depende dessa escolha. Por isso vem primeiro.
+    """
+    lucros = pd.DataFrame({
+        "cnpj": ["11.111.111/0001-11", "22.222.222/0001-22"],
+        "cd_cvm": ["19348", "906"],
+        "empresa": ["ITAU UNIBANCO HOLDING S.A.", "VALE S.A."],
+        "data_fim": pd.to_datetime(["2024-12-31", "2024-12-31"]),
+        "lucro": [1.0, 2.0],
+        "freq": ["A", "A"],
+    })
+    composicao = pd.DataFrame({
+        "codigo": ["ITUB4", "VALE3"],
+        "empresa": ["ITAUUNIBANCO", "VALE"],
+        "participacao_pct": [60.0, 40.0],
+    })
+    # CNPJ do cadastro da B3 aponta para outra entidade do grupo
+    empresas = pd.DataFrame({
+        "raiz": ["ITUB", "VALE"],
+        "cnpj": ["99.999.999/0001-99", "88.888.888/0001-88"],
+        "cd_cvm": ["19348", "906"],
+    })
+    casadas, cobertura, rel = conciliar(composicao, empresas, lucros)
+    assert rel["por_codigo_cvm"] == 2
+    assert rel["por_cnpj"] == 0
+    assert cobertura == 1.0
+    assert list(casadas["via"]) == ["codigo_cvm", "codigo_cvm"]
+
+
+def test_codigo_cvm_inexistente_na_cvm_nao_e_usado():
+    """Codigo que a B3 publica mas que nao aparece nos dados da CVM nao conta."""
+    lucros = pd.DataFrame({
+        "cnpj": ["22.222.222/0001-22"],
+        "cd_cvm": ["906"],
+        "empresa": ["VALE S.A."],
+        "data_fim": pd.to_datetime(["2024-12-31"]),
+        "lucro": [2.0],
+        "freq": ["A"],
+    })
+    composicao = pd.DataFrame({"codigo": ["XPTO3"], "empresa": ["XPTO"],
+                               "participacao_pct": [100.0]})
+    empresas = pd.DataFrame({"raiz": ["XPTO"], "cnpj": [""], "cd_cvm": ["99999"]})
+    _, cobertura, rel = conciliar(composicao, empresas, lucros)
+    assert rel["por_codigo_cvm"] == 0
+    assert cobertura == 0.0
