@@ -1,5 +1,5 @@
 {
-  "gerado_em_utc": "2026-08-09T22:52:26+00:00",
+  "gerado_em_utc": "2026-08-10T00:38:06+00:00",
   "estagios": [
     {
       "nome": "precos_spx",
@@ -69,7 +69,8 @@
   "avisos": [
     "eps_spx: a fonte parou em 2024-06-01 e a ultima observacao venceu ha 677 dias. O trecho final da serie fica VAZIO em vez de repetir o ultimo valor -- ver METODOLOGIA.md, secao de validade.",
     "5 CNPJ(s) apontam para mais de um codigo CVM e foram RECUSADOS em vez de desempatados por criterio arbitrario.",
-    "SERIE DO IBOV SUPRIMIDA: cobertura de 68.9% do peso do indice, abaixo do minimo de 80%. Publicar um agregado que deixa de fora parte relevante do indice produziria um numero que nao e o do Ibovespa. Ver LIMITACOES.md, secao 3."
+    "SERIE DO IBOV SUPRIMIDA: cobertura de 68.9% do peso do indice, abaixo do minimo de 80%. Publicar um agregado que deixa de fora parte relevante do indice produziria um numero que nao e o do Ibovespa. Ver LIMITACOES.md, secao 3.",
+    "Teto de validade aplicado retroativamente aos dados de 08/08/2026: o LPA estava repetido desde 03/06/2024 e inflava o P/E do trecho final. O trecho sem lastro foi esvaziado, nao corrigido por estimativa."
   ],
   "vigencias": [
     {
@@ -214,5 +215,17 @@
     ],
     "cobertura_por_peso": 0.6893,
     "ativos": "56/78"
+  },
+  "reparo_validade": {
+    "eps_ttm": {
+      "ultima_mudanca": "2024-06-03",
+      "vigente_ate": "2024-10-01",
+      "pregoes_removidos": 0
+    },
+    "eps_ttm_pit": {
+      "ultima_mudanca": "2024-08-15",
+      "vigente_ate": "2024-12-13",
+      "pregoes_removidos": 0
+    }
   }
 }
