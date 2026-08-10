@@ -6,12 +6,25 @@ name: Atualizacao semanal
 on:
   schedule:
     - cron: "0 12 * * 6"
+  # Mudanca de CODIGO tambem executa o pipeline. O filtro de caminhos e o que
+  # evita laco: o job so commita em data/processed e docs, que nao estao aqui.
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "tools/**"
+      - "requirements.txt"
+      - ".github/workflows/update.yml"
   workflow_dispatch:
     inputs:
       motivo:
         description: "Motivo da execucao manual"
         required: false
         default: "verificacao"
+      diagnostico:
+        description: "Rodar tools/diagnostico.py e imprimir o resultado"
+        required: false
+        default: "nao"
 
 permissions:
   contents: write
@@ -42,8 +55,22 @@ jobs:
       - name: Testes das funcoes de calculo
         run: pytest tests -q
 
+      # Roda so quando pedido. Nao corrige nada: imprime o que as fontes de fato
+      # devolvem, para que a correcao seguinte seja informada em vez de chutada.
+      - name: Diagnostico das fontes
+        if: inputs.diagnostico == 'sim'
+        run: python tools/diagnostico.py
+        continue-on-error: true
+
       - name: Coletar e processar
         run: python -m src.build
+        continue-on-error: true
+
+      # Rede de seguranca, idempotente: se algum CSV em disco vier de uma execucao
+      # anterior ao teto de validade, o trecho sem lastro e removido antes de virar
+      # grafico. Sobre dados ja corretos nao muda nada.
+      - name: Aplicar teto de validade aos dados em disco
+        run: python tools/reparar_validade.py
         continue-on-error: true
 
       - name: Gerar dashboard
