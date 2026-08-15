@@ -1,13 +1,13 @@
 {
-  "gerado_em_utc": "2026-08-10T00:38:06+00:00",
+  "gerado_em_utc": "2026-08-15T12:30:11+00:00",
   "estagios": [
     {
       "nome": "precos_spx",
       "ok": true,
-      "detalhe": "provedor: yfinance; horizonte: 16.6 anos (4174 pregoes)",
-      "obs": 4174,
+      "detalhe": "provedor: yfinance; horizonte: 16.6 anos (4176 pregoes)",
+      "obs": 4176,
       "inicio": "2010-01-04",
-      "fim": "2026-08-07"
+      "fim": "2026-08-14"
     },
     {
       "nome": "eps_spx",
@@ -28,10 +28,10 @@
     {
       "nome": "precos_ibov",
       "ok": true,
-      "detalhe": "provedor: yfinance; horizonte: 16.6 anos (4115 pregoes)",
-      "obs": 4115,
+      "detalhe": "provedor: yfinance; horizonte: 16.6 anos (4117 pregoes)",
+      "obs": 4117,
       "inicio": "2010-01-04",
-      "fim": "2026-08-07"
+      "fim": "2026-08-14"
     },
     {
       "nome": "composicao_ibov_b3",
@@ -60,16 +60,16 @@
     {
       "nome": "conciliacao_ibov",
       "ok": true,
-      "detalhe": "56/78 ativos; cobertura por peso = 68.9%; 0 via CNPJ, 16 via razao social",
+      "detalhe": "56/78 ativos; cobertura por peso = 68.4%; 0 via CNPJ, 16 via razao social",
       "obs": 56,
       "inicio": "",
       "fim": ""
     }
   ],
   "avisos": [
-    "eps_spx: a fonte parou em 2024-06-01 e a ultima observacao venceu ha 677 dias. O trecho final da serie fica VAZIO em vez de repetir o ultimo valor -- ver METODOLOGIA.md, secao de validade.",
+    "eps_spx: a fonte parou em 2024-06-01 e a ultima observacao venceu ha 684 dias. O trecho final da serie fica VAZIO em vez de repetir o ultimo valor -- ver METODOLOGIA.md, secao de validade.",
     "5 CNPJ(s) apontam para mais de um codigo CVM e foram RECUSADOS em vez de desempatados por criterio arbitrario.",
-    "SERIE DO IBOV SUPRIMIDA: cobertura de 68.9% do peso do indice, abaixo do minimo de 80%. Publicar um agregado que deixa de fora parte relevante do indice produziria um numero que nao e o do Ibovespa. Ver LIMITACOES.md, secao 3.",
+    "SERIE DO IBOV SUPRIMIDA: cobertura de 68.4% do peso do indice, abaixo do minimo de 80%. Publicar um agregado que deixa de fora parte relevante do indice produziria um numero que nao e o do Ibovespa. Ver LIMITACOES.md, secao 3.",
     "Teto de validade aplicado retroativamente aos dados de 08/08/2026: o LPA estava repetido desde 03/06/2024 e inflava o P/E do trecho final. O trecho sem lastro foi esvaziado, nao corrigido por estimativa."
   ],
   "vigencias": [
@@ -77,7 +77,7 @@
       "fonte": "eps_spx",
       "ultima_observacao": "2024-06-01",
       "vigente_ate": "2024-09-29",
-      "defasagem_dias": 797,
+      "defasagem_dias": 804,
       "vencida": true
     }
   ],
@@ -88,91 +88,91 @@
     "sem_correspondencia": [
       {
         "codigo": "ASAI3",
-        "peso": 0.459
+        "peso": 0.468
       },
       {
         "codigo": "GOAU4",
-        "peso": 0.381
+        "peso": 0.395
       },
       {
         "codigo": "ITUB4",
-        "peso": 8.572
+        "peso": 8.505
       },
       {
         "codigo": "RENT3",
-        "peso": 1.541
+        "peso": 1.416
       },
       {
         "codigo": "MGLU3",
-        "peso": 0.068
+        "peso": 0.063
       },
       {
         "codigo": "MBRF3",
-        "peso": 0.509
+        "peso": 0.538
       },
       {
         "codigo": "MOTV3",
-        "peso": 0.605
+        "peso": 0.597
       },
       {
         "codigo": "MRVE3",
-        "peso": 0.07
+        "peso": 0.077
       },
       {
         "codigo": "MULT3",
-        "peso": 0.37
+        "peso": 0.369
       },
       {
         "codigo": "NATU3",
-        "peso": 0.289
+        "peso": 0.278
       },
       {
         "codigo": "PETR3",
-        "peso": 4.259
+        "peso": 4.526
       },
       {
         "codigo": "PETR4",
-        "peso": 7.509
+        "peso": 8.017
       },
       {
         "codigo": "RECV3",
-        "peso": 0.117
+        "peso": 0.125
       },
       {
         "codigo": "RADL3",
-        "peso": 1.107
+        "peso": 0.994
       },
       {
         "codigo": "RDOR3",
-        "peso": 1.542
+        "peso": 1.586
       },
       {
         "codigo": "SMFT3",
-        "peso": 0.421
+        "peso": 0.412
       },
       {
         "codigo": "TAEE11",
-        "peso": 0.357
+        "peso": 0.353
       },
       {
         "codigo": "VIVT3",
-        "peso": 0.901
+        "peso": 0.908
       },
       {
         "codigo": "USIM5",
-        "peso": 0.154
+        "peso": 0.142
       },
       {
         "codigo": "VAMO3",
-        "peso": 0.057
+        "peso": 0.054
       },
       {
         "codigo": "VBBR3",
-        "peso": 1.699
+        "peso": 1.729
       },
       {
         "codigo": "YDUQ3",
-        "peso": 0.087
+        "peso": 0.083
       }
     ],
     "trocas_de_cnpj": [],
@@ -213,7 +213,7 @@
         ]
       }
     ],
-    "cobertura_por_peso": 0.6893,
+    "cobertura_por_peso": 0.6837,
     "ativos": "56/78"
   },
   "reparo_validade": {
