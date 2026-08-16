@@ -45,21 +45,33 @@ def _shiller_date_to_ts(v):
 
 
 def _abrir_tabela() -> pd.DataFrame:
-    """Devolve a aba Data crua, com a linha de cabecalho ja localizada."""
+    """Devolve a aba Data crua, com o bloco de cabecalho ja delimitado."""
     raw = get(SHILLER_XLS)
     xls = pd.ExcelFile(io.BytesIO(raw))
     sheet = next((s for s in xls.sheet_names if s.strip().lower() == "data"),
                  xls.sheet_names[0])
     df = xls.parse(sheet, header=None)
-    header_row = None
-    for i in range(min(30, len(df))):
-        linha = " ".join(str(v).lower() for v in df.iloc[i].tolist())
-        if "cape" in linha:
-            header_row = i
+
+    # O cabecalho da ie_data ocupa OITO linhas, com o rotulo de cada coluna
+    # empilhado verticalmente: a coluna do CAPE, por exemplo, se le de cima para
+    # baixo como "Cyclically / Adjusted / Price / Earnings / Ratio / P/E10 or /
+    # CAPE". Procurar "a primeira linha que contem 'cape'" achava a linha 6, em
+    # que a palavra CAPE pertence a OUTRA coluna -- a do "Excess CAPE Yield",
+    # cujo rotulo se completa uma linha abaixo. Dai a serie ter saido ausente.
+    #
+    # O corpo comeca na primeira linha cuja coluna 0 e uma data no formato
+    # AAAA.MM da planilha. Tudo acima disso e cabecalho.
+    primeira_dado = None
+    for i in range(min(40, len(df))):
+        if not pd.isna(_shiller_date_to_ts(df.iloc[i][df.columns[0]])):
+            primeira_dado = i
             break
-    if header_row is None:
-        raise SourceUnavailable("linha de cabecalho (com CAPE) nao encontrada na planilha Shiller")
-    df.attrs["header_row"] = header_row
+    if primeira_dado is None or primeira_dado == 0:
+        raise SourceUnavailable(
+            "nao encontrei a primeira linha de dados da planilha Shiller "
+            "(coluna 0 deveria trazer a data no formato AAAA.MM)")
+    df.attrs["header_row"] = primeira_dado - 1
+    df.attrs["header_inicio"] = 0
     return df
 
 
@@ -74,41 +86,42 @@ def cape_plausivel(serie: pd.Series) -> bool:
 def _escolher_cape(df: pd.DataFrame, body: pd.DataFrame, cols: list, h: int):
     """Escolhe a coluna de CAPE por rotulo E por plausibilidade do valor.
 
-    A selecao anterior era `primeira coluna cujo cabecalho contem "cape"`. A aba
-    Data traz, lado a lado, "CAPE", "TR CAPE" e "Excess CAPE Yield" -- as tres
-    casam com a substring, e a terceira e um RENDIMENTO, da ordem de 0,02. Foi
-    o que acabou publicado em 08/08/2026: a serie rotulada CAPE no dashboard ia
-    de 0,01 a 0,06, quando o CAPE do S&P 500 nunca saiu da faixa de um digito a
-    quarenta e poucos em cem anos de historia.
+    Medido na planilha real em 10/08/2026:
 
-    Um rotulo certo com valor absurdo continua sendo valor absurdo. Por isso a
-    escolha passa pelos dois crivos: preferencia por rotulo exato, e recusa de
-    qualquer coluna cuja mediana nao caiba na faixa historica do indicador.
+      col 12 -> "Cyclically Adjusted Price Earnings Ratio  P/E10 or  CAPE"
+                mediana 16,52  min 4,78  max 44,20   <- o CAPE
+      col 14 -> "Cyclically Adjusted Total Return ...  TR P/E10 or  TR CAPE"
+                mediana 20,54  min 6,58  max 48,11   <- CAPE de retorno total
+      col 16 -> "Excess  CAPE  Yield"
+                mediana 0,0336                        <- rendimento, nao multiplo
+
+    As tres contem a palavra CAPE. A escolha passa por dois crivos: o rotulo
+    completo da coluna no bloco de cabecalho, e a plausibilidade do valor. Um
+    rotulo certo com valor absurdo continua sendo valor absurdo.
     """
-    # O cabecalho da ie_data ocupa mais de uma linha, e o rotulo de uma coluna
-    # costuma estar numa linha ACIMA da localizada pela busca por "cape". Ler
-    # uma linha so foi o que fez a coluna errada parecer chamar-se "cape" na
-    # execucao #6: a mediana da escolhida deu 0,034, um rendimento.
+    # Rotulo = a coluna inteira do bloco de cabecalho, lida de cima para baixo.
+    # Na ie_data real, a coluna 12 se le "cyclically adjusted price earnings
+    # ratio p/e10 or cape" e a 14, "... total return ... tr p/e10 or tr cape".
+    # Ler so as ultimas linhas nao distingue as duas nem exclui a terceira.
     rotulos = {}
     for c in cols:
         partes = []
-        for r in range(max(0, h - 2), h + 1):
+        for r in range(0, h + 1):
             v = str(df.iloc[r][c]).strip().lower()
             if v and v != "nan":
                 partes.append(v)
         rotulos[c] = " ".join(partes)
 
     def _pontuar(rotulo: str) -> int:
-        toks = rotulo.split()
         if "yield" in rotulo or "excess" in rotulo:
             return -1          # rendimento, nao multiplo
-        if toks == ["cape"]:
-            return 3
-        if "cape" in toks:
-            return 2
-        if "cape" in rotulo:
+        if "cape" not in rotulo and "p/e10" not in rotulo:
+            return -1
+        # "TR CAPE" e o CAPE de retorno total: indicador legitimo, mas nao e o
+        # CAPE que o dashboard anuncia. Fica como segunda opcao, nao como igual.
+        if "total return" in rotulo or " tr " in f" {rotulo} " or "tr cape" in rotulo:
             return 1
-        return -1
+        return 3
 
     candidatos = sorted(((_pontuar(r), c) for c, r in rotulos.items() if _pontuar(r) > 0),
                         key=lambda t: -t[0])
@@ -118,8 +131,8 @@ def _escolher_cape(df: pd.DataFrame, body: pd.DataFrame, cols: list, h: int):
         if cape_plausivel(serie):
             return serie, rotulos[c]
         v = serie.dropna()
-        recusadas.append(f"'{rotulos[c]}' (mediana={float(v.median()):.4g})"
-                         if v.size else f"'{rotulos[c]}' (vazia)")
+        recusadas.append(f"'{rotulos[c][:40]}' (mediana={float(v.median()):.4g})"
+                         if v.size else f"'{rotulos[c][:40]}' (vazia)")
     if candidatos:
         raise SourceUnavailable(
             "nenhuma coluna de CAPE da planilha Shiller ficou na faixa plausivel "
@@ -170,7 +183,7 @@ def fetch_tabela() -> pd.DataFrame:
     log.info("Shiller: %d meses de %s a %s (lucro=%d, cape=%d via '%s')", len(out),
              out.index.min().date(), out.index.max().date(),
              int(out["lucro_ttm"].notna().sum()), int(out["cape"].notna().sum()),
-             cape_rotulo)
+             cape_rotulo[:40])
     return out
 
 
