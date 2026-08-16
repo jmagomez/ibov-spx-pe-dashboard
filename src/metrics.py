@@ -101,6 +101,46 @@ def defasagem_dias(step: pd.Series, referencia: pd.Timestamp) -> int:
     return int((pd.Timestamp(referencia) - s.index.max()).days)
 
 
+def soma_por_entidade(lucros, daily_index, lag_days: int, max_stale_days: int,
+                      trimestral: bool = False):
+    """Projeta o lucro de CADA companhia no calendario diario e soma.
+
+    Somar por data_fim e so depois projetar esta errado, e o erro nao e sutil.
+    As companhias tem fins de exercicio diferentes; agrupar por data_fim junta
+    apenas as que fecham naquele dia, e a serie-degrau resultante salta para o
+    SUBTOTAL do ultimo grupo em vez do total. O agregado do Ibovespa oscilava
+    entre R$ 0,8 bi e R$ 150 bi dentro do mesmo ano de 2011 por causa disso, e
+    o indice normalizado chegava a 20.000 numa serie de base 100.
+
+    Aqui cada companhia vira a sua propria serie-degrau, com o mesmo teto de
+    validade das demais, e a soma e feita ponto a ponto. Devolve tambem quantas
+    companhias tinham lucro vigente em cada data -- sem esse numero nao da para
+    distinguir "o lucro agregado caiu" de "menos empresas foram somadas".
+
+    Args:
+        lucros: DataFrame com cd_cvm, data_fim e lucro.
+        trimestral: se True, cada companhia passa por soma movel de 4 trimestres
+            ANTES da projecao. Somar trimestres de companhias diferentes e depois
+            acumular 12 meses misturaria periodos distintos.
+    """
+    if lucros.empty:
+        vazio = pd.Series(index=daily_index, dtype="float64")
+        return vazio, pd.Series(0, index=daily_index, dtype="int64")
+
+    total = pd.Series(0.0, index=daily_index)
+    cobertas = pd.Series(0, index=daily_index, dtype="int64")
+    for _, g in lucros.groupby("cd_cvm"):
+        s = g.groupby("data_fim")["lucro"].sum().sort_index()
+        if trimestral:
+            s = ttm_from_quarterly(s)
+            if s.dropna().empty:
+                continue
+        d = step_to_daily(s, daily_index, lag_days, max_stale_days)
+        total = total.add(d.fillna(0.0))
+        cobertas = cobertas.add(d.notna().astype("int64"))
+    return total.where(cobertas > 0), cobertas
+
+
 # ---------------------------------------------------------------------------
 # Metricas de valuation
 # ---------------------------------------------------------------------------
