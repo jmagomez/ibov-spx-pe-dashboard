@@ -1,5 +1,5 @@
 {
-  "gerado_em_utc": "2026-08-15T12:30:11+00:00",
+  "gerado_em_utc": "2026-08-16T22:46:30+00:00",
   "estagios": [
     {
       "nome": "precos_spx",
@@ -19,11 +19,11 @@
     },
     {
       "nome": "cape_shiller",
-      "ok": false,
-      "detalhe": "serie CAPE vazia",
-      "obs": 0,
-      "inicio": "",
-      "fim": ""
+      "ok": true,
+      "detalhe": "",
+      "obs": 177,
+      "inicio": "2010-01-01",
+      "fim": "2024-09-01"
     },
     {
       "nome": "precos_ibov",
@@ -44,8 +44,8 @@
     {
       "nome": "lucros_cvm",
       "ok": true,
-      "detalhe": "DFP 2010-12-31..2025-12-31 | ITR 2021-03-31..2026-06-30",
-      "obs": 13705,
+      "detalhe": "DFP 2010-12-31..2024-12-31 | ITR 2021-03-31..2026-06-30",
+      "obs": 12146,
       "inicio": "",
       "fim": ""
     },
@@ -53,23 +53,31 @@
       "nome": "cadastro_b3",
       "ok": true,
       "detalhe": "ponte codigo de negociacao -> CNPJ",
-      "obs": 1997,
+      "obs": 3481,
       "inicio": "",
       "fim": ""
     },
     {
       "nome": "conciliacao_ibov",
       "ok": true,
-      "detalhe": "56/78 ativos; cobertura por peso = 68.4%; 0 via CNPJ, 16 via razao social",
-      "obs": 56,
+      "detalhe": "78/78 ativos; cobertura por peso = 100.0%; 78 via codigo CVM, 0 via CNPJ, 0 via razao social",
+      "obs": 78,
+      "inicio": "",
+      "fim": ""
+    },
+    {
+      "nome": "pe_ibov",
+      "ok": true,
+      "detalhe": "cobertura 100.0%; 2020 linhas de lucro de 76 companhias; indicador normalizado (base 100), NAO e P/E em nivel -- ver METODOLOGIA.md secao 4",
+      "obs": 3821,
       "inicio": "",
       "fim": ""
     }
   ],
   "avisos": [
     "eps_spx: a fonte parou em 2024-06-01 e a ultima observacao venceu ha 684 dias. O trecho final da serie fica VAZIO em vez de repetir o ultimo valor -- ver METODOLOGIA.md, secao de validade.",
+    "cape_shiller: a fonte parou em 2024-09-01 e a ultima observacao venceu ha 592 dias. O trecho final da serie fica VAZIO em vez de repetir o ultimo valor -- ver METODOLOGIA.md, secao de validade.",
     "5 CNPJ(s) apontam para mais de um codigo CVM e foram RECUSADOS em vez de desempatados por criterio arbitrario.",
-    "SERIE DO IBOV SUPRIMIDA: cobertura de 68.4% do peso do indice, abaixo do minimo de 80%. Publicar um agregado que deixa de fora parte relevante do indice produziria um numero que nao e o do Ibovespa. Ver LIMITACOES.md, secao 3.",
     "Teto de validade aplicado retroativamente aos dados de 08/08/2026: o LPA estava repetido desde 03/06/2024 e inflava o P/E do trecho final. O trecho sem lastro foi esvaziado, nao corrigido por estimativa."
   ],
   "vigencias": [
@@ -79,142 +87,60 @@
       "vigente_ate": "2024-09-29",
       "defasagem_dias": 804,
       "vencida": true
+    },
+    {
+      "fonte": "cape_shiller",
+      "ultima_observacao": "2024-09-01",
+      "vigente_ate": "2024-12-30",
+      "defasagem_dias": 712,
+      "vencida": true
     }
   ],
   "conciliacao": {
-    "por_codigo_cvm": 40,
+    "por_codigo_cvm": 78,
     "por_cnpj": 0,
-    "por_nome": 16,
-    "sem_correspondencia": [
-      {
-        "codigo": "ASAI3",
-        "peso": 0.468
-      },
-      {
-        "codigo": "GOAU4",
-        "peso": 0.395
-      },
-      {
-        "codigo": "ITUB4",
-        "peso": 8.505
-      },
-      {
-        "codigo": "RENT3",
-        "peso": 1.416
-      },
-      {
-        "codigo": "MGLU3",
-        "peso": 0.063
-      },
-      {
-        "codigo": "MBRF3",
-        "peso": 0.538
-      },
-      {
-        "codigo": "MOTV3",
-        "peso": 0.597
-      },
-      {
-        "codigo": "MRVE3",
-        "peso": 0.077
-      },
-      {
-        "codigo": "MULT3",
-        "peso": 0.369
-      },
-      {
-        "codigo": "NATU3",
-        "peso": 0.278
-      },
-      {
-        "codigo": "PETR3",
-        "peso": 4.526
-      },
-      {
-        "codigo": "PETR4",
-        "peso": 8.017
-      },
-      {
-        "codigo": "RECV3",
-        "peso": 0.125
-      },
-      {
-        "codigo": "RADL3",
-        "peso": 0.994
-      },
-      {
-        "codigo": "RDOR3",
-        "peso": 1.586
-      },
-      {
-        "codigo": "SMFT3",
-        "peso": 0.412
-      },
-      {
-        "codigo": "TAEE11",
-        "peso": 0.353
-      },
-      {
-        "codigo": "VIVT3",
-        "peso": 0.908
-      },
-      {
-        "codigo": "USIM5",
-        "peso": 0.142
-      },
-      {
-        "codigo": "VAMO3",
-        "peso": 0.054
-      },
-      {
-        "codigo": "VBBR3",
-        "peso": 1.729
-      },
-      {
-        "codigo": "YDUQ3",
-        "peso": 0.083
-      }
-    ],
+    "por_nome": 0,
+    "sem_correspondencia": [],
     "trocas_de_cnpj": [],
     "cnpj_ambiguo": [
       {
         "cnpj": "08926302000105",
         "cd_cvm": [
-          "023493",
-          "027740"
+          "23493",
+          "27740"
         ]
       },
       {
         "cnpj": "09149503000106",
         "cd_cvm": [
-          "022110",
-          "023426"
+          "22110",
+          "23426"
         ]
       },
       {
         "cnpj": "42737954000121",
         "cd_cvm": [
-          "057886",
-          "080217"
+          "57886",
+          "80217"
         ]
       },
       {
         "cnpj": "59717553000102",
         "cd_cvm": [
-          "026034",
+          "26034",
           "902123"
         ]
       },
       {
         "cnpj": "62258884000136",
         "cd_cvm": [
-          "019631",
-          "025992"
+          "19631",
+          "25992"
         ]
       }
     ],
-    "cobertura_por_peso": 0.6837,
-    "ativos": "56/78"
+    "cobertura_por_peso": 1.0,
+    "ativos": "78/78"
   },
   "reparo_validade": {
     "eps_ttm": {
@@ -225,6 +151,11 @@
     "eps_ttm_pit": {
       "ultima_mudanca": "2024-08-15",
       "vigente_ate": "2024-12-13",
+      "pregoes_removidos": 0
+    },
+    "cape": {
+      "ultima_mudanca": "2024-09-03",
+      "vigente_ate": "2025-01-01",
       "pregoes_removidos": 0
     }
   }
