@@ -1,5 +1,5 @@
 {
-  "gerado_em_utc": "2026-08-16T22:46:30+00:00",
+  "gerado_em_utc": "2026-08-16T23:15:13+00:00",
   "estagios": [
     {
       "nome": "precos_spx",
@@ -28,8 +28,8 @@
     {
       "nome": "precos_ibov",
       "ok": true,
-      "detalhe": "provedor: yfinance; horizonte: 16.6 anos (4117 pregoes)",
-      "obs": 4117,
+      "detalhe": "provedor: yfinance; horizonte: 16.6 anos (4120 pregoes)",
+      "obs": 4120,
       "inicio": "2010-01-04",
       "fim": "2026-08-14"
     },
@@ -68,8 +68,8 @@
     {
       "nome": "pe_ibov",
       "ok": true,
-      "detalhe": "cobertura 100.0%; 2020 linhas de lucro de 76 companhias; indicador normalizado (base 100), NAO e P/E em nivel -- ver METODOLOGIA.md secao 4",
-      "obs": 3821,
+      "detalhe": "cobertura 100.0%; 2020 linhas de lucro de 76 companhias; exigidas >= 61 companhias por data (somadas: min 61, mediana 70); indicador normalizado (base 100), NAO e P/E em nivel -- ver METODOLOGIA.md secao 4",
+      "obs": 3082,
       "inicio": "",
       "fim": ""
     }
