@@ -9,7 +9,8 @@ Principios que governam este arquivo:
    conhecido travado. Alternar entre FONTES documentadas e outra coisa: a fonte
    efetivamente usada aparece no diagnostico.
 3. Series com lastro insuficiente sao SUPRIMIDAS, nao publicadas com ressalva
-   em letra miuda. O portao de cobertura do Ibovespa implementa isso.
+   em letra miuda. O portao de cobertura do Ibovespa implementa isso, e desde
+   a correcao da agregacao ele vale data a data, nao so uma vez.
 """
 from __future__ import annotations
 
@@ -35,7 +36,8 @@ log = logging.getLogger("build")
 
 # Fracao minima do peso do Ibovespa que precisa ter lucro conciliado para que a
 # serie do IBOV seja publicada. Abaixo disso o agregado nao representa o indice
-# e a serie e suprimida.
+# e a serie e suprimida. O mesmo numero limita quantas companhias podem faltar
+# na soma de uma data especifica.
 COBERTURA_MINIMA_IBOV = 0.80
 
 
@@ -328,21 +330,29 @@ def build_ibov(status: Status):
                 f"foi selecionada -- codigos CVM em formatos incompativeis. "
                 f"exemplos casados={list(keys)[:5]}; "
                 f"exemplos na CVM={list(lucros['cd_cvm'].astype(str).unique()[:5])}")
-        anual = (sel[sel["freq"] == "A"].groupby("data_fim")["lucro"].sum().sort_index())
-        trim = (sel[sel["freq"] == "T"].groupby("data_fim")["lucro"].sum().sort_index())
-        ttm_trim = metrics.ttm_from_quarterly(trim) if not trim.empty else pd.Series(dtype=float)
+        # Cada companhia vira sua propria serie-degrau e as series sao somadas
+        # ponto a ponto. Ver metrics.soma_por_entidade para o motivo.
+        n_alvo = len(keys)
+        lucro_diario_a, cob_a = metrics.soma_por_entidade(
+            sel[sel["freq"] == "A"], out.index, REPORTING_LAG_DAYS_PIT,
+            MAX_STALE_DAYS_LUCRO_ANUAL)
+        lucro_diario_t, cob_t = metrics.soma_por_entidade(
+            sel[sel["freq"] == "T"], out.index, REPORTING_LAG_DAYS_PIT,
+            MAX_STALE_DAYS_LUCRO_TRIMESTRAL, trimestral=True)
 
-        lucro_diario_a = metrics.step_to_daily(
-            anual, out.index, REPORTING_LAG_DAYS_PIT, MAX_STALE_DAYS_LUCRO_ANUAL)
-        lucro_diario_t = (metrics.step_to_daily(
-                              ttm_trim, out.index, REPORTING_LAG_DAYS_PIT,
-                              MAX_STALE_DAYS_LUCRO_TRIMESTRAL)
-                          if not ttm_trim.empty
-                          else pd.Series(index=out.index, dtype="float64"))
+        # Um agregado somado sobre um subconjunto encolhido nao e o agregado do
+        # indice -- e o mesmo criterio do portao de cobertura, agora aplicado
+        # data a data em vez de uma vez so.
+        min_emp = COBERTURA_MINIMA_IBOV * n_alvo
+        lucro_diario_a = lucro_diario_a.where(cob_a >= min_emp)
+        lucro_diario_t = lucro_diario_t.where(cob_t >= min_emp)
+
         # O trimestral tem precedencia onde existe; o anual cobre o trecho antigo.
         out["lucro_agregado"] = lucro_diario_t.combine_first(lucro_diario_a)
+        out["empresas_somadas"] = np.where(lucro_diario_t.notna(), cob_t, cob_a)
         out["freq_lucro"] = np.where(lucro_diario_t.notna(), "trimestral", "anual")
         out.loc[out["lucro_agregado"].isna(), "freq_lucro"] = ""
+        out.loc[out["lucro_agregado"].isna(), "empresas_somadas"] = 0
 
         # Ancoragem: o indice e o agregado tem escalas diferentes (o indice e uma
         # media ponderada com redutor; o agregado e lucro em BRL). A razao entre
@@ -354,8 +364,12 @@ def build_ibov(status: Status):
         out["valuation_z"] = metrics.rolling_zscore(razao, STAT_WINDOW)
         out["valuation_pct"] = metrics.rolling_percentile(razao, STAT_WINDOW)
         st.ok, st.obs = True, int(razao.notna().sum())
+        emp = out.loc[out["lucro_agregado"].notna(), "empresas_somadas"]
         st.detalhe = (f"cobertura {cobertura:.1%}; {len(sel)} linhas de lucro de "
-                      f"{sel['cd_cvm'].nunique()} companhias; indicador normalizado "
+                      f"{sel['cd_cvm'].nunique()} companhias; exigidas >= "
+                      f"{min_emp:.0f} companhias por data (somadas: min "
+                      f"{int(emp.min()) if len(emp) else 0}, mediana "
+                      f"{int(emp.median()) if len(emp) else 0}); indicador normalizado "
                       f"(base 100), NAO e P/E em nivel -- ver METODOLOGIA.md secao 4")
     except Exception as exc:  # noqa: BLE001
         st.detalhe = str(exc)
