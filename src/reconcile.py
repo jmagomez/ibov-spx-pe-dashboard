@@ -15,9 +15,7 @@ anterior a troca -- silenciosamente, que e o pior modo de perder dado.
 
 E ha uma segunda armadilha, transversal: um grupo economico tem VARIOS CNPJs ao
 mesmo tempo, e o que a B3 publica no cadastro nem sempre e o da entidade que
-entrega a DFP. Com ITUB4, PETR3 e PETR4 foi exatamente isso -- CNPJ valido, do
-grupo certo, da entidade errada. Juntos respondiam por 20 dos 31 pontos de peso
-que ficaram de fora.
+entrega a DFP.
 
 Dai a ordem de preferencia:
 
@@ -58,6 +56,22 @@ def normalizar_cnpj(v) -> str:
     return "" if d == "0" * 14 else d
 
 
+def normalizar_cd_cvm(v) -> str:
+    """Codigo CVM em forma canonica: so digitos, sem zeros a esquerda.
+
+    A CVM publica o codigo com zeros a esquerda ("000906") e a B3 publica sem
+    ("906"). Comparar as duas formas cruas nao casa nada -- e o modo como isso
+    falha e traicoeiro: a conciliacao reporta 100% de cobertura, porque ela
+    normaliza dos dois lados, e a agregacao seguinte seleciona zero linhas,
+    porque comparava as formas cruas. Serie vazia com o portao aberto.
+
+    Por isso existe UMA funcao, usada por quem concilia e por quem agrega. Duas
+    nocoes parecidas de "mesmo codigo" foi o que produziu o erro.
+    """
+    d = re.sub(r"\D", "", str(v or "")).lstrip("0")
+    return d
+
+
 def raiz_ticker(codigo: str) -> str:
     """VALE3 -> VALE; PETR4 -> PETR. A raiz de 4 letras identifica o emissor."""
     letras = re.sub(r"[^A-Za-z]", "", str(codigo or "")).upper()
@@ -92,7 +106,7 @@ def mapa_cnpj_cdcvm(lucros: pd.DataFrame) -> tuple[dict, list, list]:
     pares = pares[pares["cnpj"] != ""]
     if pares.empty:
         return {}, [], []
-    pares["cd_cvm"] = pares["cd_cvm"].astype(str).str.strip()
+    pares["cd_cvm"] = pares["cd_cvm"].map(normalizar_cd_cvm)
 
     trocas = []
     for cd, g in pares.groupby("cd_cvm"):
@@ -140,17 +154,6 @@ def conciliar(composicao: pd.DataFrame, empresas_b3: pd.DataFrame,
     rel["trocas_de_cnpj"], rel["cnpj_ambiguo"] = trocas, ambiguos
 
     # raiz do ticker -> identificadores, a partir do cadastro de listadas da B3.
-    #
-    # DUAS pontes, nesta ordem de preferencia:
-    #
-    #   codeCVM - ligacao direta com o registro na CVM. E a mais forte porque
-    #             nao depende de qual entidade do grupo a B3 escolheu cadastrar.
-    #   CNPJ    - segunda opcao. Um grupo economico tem varios CNPJs, e o que a
-    #             B3 publica nem sempre e o da entidade que entrega a DFP. Foi
-    #             exatamente o que aconteceu com ITUB4, PETR3 e PETR4: CNPJ
-    #             valido, presente no cadastro, que simplesmente nao e o do
-    #             declarante. Juntos, esses tres respondiam por 20 dos 31 pontos
-    #             de peso que ficaram de fora.
     raiz_para_cnpj, raiz_para_cd = {}, {}
     if not empresas_b3.empty and "raiz" in empresas_b3.columns:
         tem_cnpj = "cnpj" in empresas_b3.columns
@@ -164,17 +167,17 @@ def conciliar(composicao: pd.DataFrame, empresas_b3: pd.DataFrame,
                 if c:
                     raiz_para_cnpj[raiz] = c
             if tem_cd:
-                cd = str(r["cd_cvm"]).strip().lstrip("0")
-                if cd and cd.isdigit():
+                cd = normalizar_cd_cvm(r["cd_cvm"])
+                if cd:
                     raiz_para_cd[raiz] = cd
 
     # razao social -> cd_cvm, so para o resto que os identificadores nao resolverem
     nome_para_cd = {}
     if "empresa" in lucros.columns:
         for _, r in lucros[["empresa", "cd_cvm"]].dropna().drop_duplicates().iterrows():
-            nome_para_cd.setdefault(_norm_nome(r["empresa"]), str(r["cd_cvm"]).strip())
+            nome_para_cd.setdefault(_norm_nome(r["empresa"]), normalizar_cd_cvm(r["cd_cvm"]))
 
-    cds_conhecidos = set(lucros["cd_cvm"].astype(str).str.strip().str.lstrip("0").unique())
+    cds_conhecidos = set(lucros["cd_cvm"].map(normalizar_cd_cvm).unique())
 
     linhas = []
     peso_total = float(composicao.get("participacao_pct", pd.Series(dtype=float)).sum() or 0.0)
