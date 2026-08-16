@@ -261,8 +261,8 @@ def build_ibov(status: Status):
         return out, comp
 
     # --- Conciliacao composicao B3 <-> companhias CVM -----------------------
-    # Por CNPJ, com CD_CVM como chave estavel. Ver src/reconcile.py para o
-    # motivo -- em resumo: nome nao e chave, e CNPJ muda.
+    # Por identificador, com CD_CVM como chave estavel. Ver src/reconcile.py
+    # para o motivo -- em resumo: nome nao e chave, e CNPJ muda.
     st = Stage("cadastro_b3")
     empresas = pd.DataFrame()
     try:
@@ -285,7 +285,8 @@ def build_ibov(status: Status):
         status.conciliacao = rel
         st.ok, st.obs = True, len(casadas)
         st.detalhe = (f"{rel['ativos']} ativos; cobertura por peso = {cobertura:.1%}; "
-                      f"{rel['por_cnpj']} via CNPJ, {rel['por_nome']} via razao social")
+                      f"{rel['por_codigo_cvm']} via codigo CVM, {rel['por_cnpj']} via CNPJ, "
+                      f"{rel['por_nome']} via razao social")
         if rel["trocas_de_cnpj"]:
             status.avisos.append(
                 f"{len(rel['trocas_de_cnpj'])} companhia(s) trocaram de CNPJ no periodo. "
@@ -316,8 +317,17 @@ def build_ibov(status: Status):
     # --- Agregacao ----------------------------------------------------------
     st = Stage("pe_ibov")
     try:
-        keys = set(casadas["cd_cvm"].astype(str))
-        sel = lucros[lucros["cd_cvm"].astype(str).isin(keys)].copy()
+        # Os dois lados passam pela MESMA normalizacao. Sem isso a conciliacao
+        # reportava 100% de cobertura e a selecao devolvia zero linhas: a CVM
+        # publica "000906" e a B3, "906". O portao abria e a serie saia vazia.
+        keys = set(casadas["cd_cvm"].map(reconcile.normalizar_cd_cvm))
+        sel = lucros[lucros["cd_cvm"].map(reconcile.normalizar_cd_cvm).isin(keys)].copy()
+        if sel.empty:
+            raise RuntimeError(
+                f"conciliacao casou {len(casadas)} ativos mas nenhuma linha de lucro "
+                f"foi selecionada -- codigos CVM em formatos incompativeis. "
+                f"exemplos casados={list(keys)[:5]}; "
+                f"exemplos na CVM={list(lucros['cd_cvm'].astype(str).unique()[:5])}")
         anual = (sel[sel["freq"] == "A"].groupby("data_fim")["lucro"].sum().sort_index())
         trim = (sel[sel["freq"] == "T"].groupby("data_fim")["lucro"].sum().sort_index())
         ttm_trim = metrics.ttm_from_quarterly(trim) if not trim.empty else pd.Series(dtype=float)
@@ -344,8 +354,9 @@ def build_ibov(status: Status):
         out["valuation_z"] = metrics.rolling_zscore(razao, STAT_WINDOW)
         out["valuation_pct"] = metrics.rolling_percentile(razao, STAT_WINDOW)
         st.ok, st.obs = True, int(razao.notna().sum())
-        st.detalhe = (f"cobertura {cobertura:.1%}; indicador normalizado (base 100), "
-                      f"NAO e P/E em nivel -- ver METODOLOGIA.md secao 4")
+        st.detalhe = (f"cobertura {cobertura:.1%}; {len(sel)} linhas de lucro de "
+                      f"{sel['cd_cvm'].nunique()} companhias; indicador normalizado "
+                      f"(base 100), NAO e P/E em nivel -- ver METODOLOGIA.md secao 4")
     except Exception as exc:  # noqa: BLE001
         st.detalhe = str(exc)
         log.error("pe_ibov falhou: %s", exc)
