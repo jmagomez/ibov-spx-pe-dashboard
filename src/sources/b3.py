@@ -67,19 +67,29 @@ def fetch_empresas_listadas() -> pd.DataFrame:
     nao conhece codigo de negociacao. Este cadastro e o unico ponto em que os
     dois universos se tocam, e por isso a conciliacao depende dele.
 
-    PAGINADO. Pedir pageSize=500 devolveu `{"page": ..., "results": []}` -- uma
-    resposta HTTP 200, bem formada, e vazia. O endpoint tem um teto de pagina e,
-    acima dele, nao recusa o pedido: devolve nada. Foi assim que a execucao #8
-    caiu para conciliacao por razao social sem que a causa fosse obvia. O laco
-    abaixo pede paginas pequenas e usa o total informado pelo proprio payload.
+    PAGINADO, e o tamanho da pagina importa duas vezes:
+
+      - pageSize=500 devolveu `{"page": ..., "results": []}`: HTTP 200, resposta
+        bem formada, e vazia. O endpoint tem teto de pagina e, acima dele, nao
+        recusa o pedido -- devolve nada.
+      - o teto de 20 paginas x 100 cortava a lista em 2000 registros. O cadastro
+        tem mais que isso, e as companhias alem do corte simplesmente nao
+        existiam para a conciliacao. Foi o que manteve ITUB, PETR e outras 20
+        fora da serie do Ibovespa.
 
     Endpoint interno do portal, sem contrato publico -- mesmo risco ja registrado
     para a carteira. Se a resposta vier sem os campos esperados, a funcao levanta
     excecao com a lista de campos recebidos, para que a mudanca de layout apareca
     no diagnostico em vez de virar cobertura baixa sem explicacao.
     """
+    # O teto de 20 paginas x 100 registros cortava a lista em 2000 -- e o
+    # cadastro tem mais que isso. Foi essa truncagem, e nao o CNPJ da entidade
+    # errada, que deixou ITUB, PETR, VIVT, RENT e outros 18 de fora: a raiz
+    # deles simplesmente nao chegava a estar na tabela. O diagnostico mostrou
+    # 1997 companhias e as 22 raizes ausentes, todas com "NAO ESTA".
     linhas, pagina, total_paginas, campos = [], 1, 1, []
-    while pagina <= total_paginas and pagina <= 20:
+    total_informado = None
+    while pagina <= total_paginas and pagina <= 200:
         params = {"language": "pt-br", "pageNumber": pagina, "pageSize": 100}
         token = base64.b64encode(json.dumps(params).encode()).decode()
         raw = get(B3_LISTED_COMPANIES + token,
@@ -92,6 +102,8 @@ def fetch_empresas_listadas() -> pd.DataFrame:
 
         page_info = payload.get("page") or {}
         total_paginas = int(page_info.get("totalPages") or 1)
+        if total_informado is None:
+            total_informado = page_info.get("totalRecords")
         res = payload.get("results") or []
         if not res:
             if pagina == 1:
@@ -137,7 +149,7 @@ def fetch_empresas_listadas() -> pd.DataFrame:
         "cnpj": df[col_cnpj].astype(str).map(lambda v: "" if v.lower() in ("none", "nan") else v),
         # codeCVM e a ligacao DIRETA com o registro na CVM -- mais forte que o
         # CNPJ, porque nao depende de qual entidade do grupo a B3 escolheu
-        # cadastrar. Foi o que faltava para ITUB, PETR e outros pesos pesados.
+        # cadastrar.
         "cd_cvm": (df[col_cd].astype(str).str.replace(r"\D", "", regex=True).str.lstrip("0")
                    if col_cd else ""),
         "nome": df.get("companyName", pd.Series([""] * len(df))).astype(str),
@@ -157,6 +169,19 @@ def fetch_empresas_listadas() -> pd.DataFrame:
             f"(codigo, identificador) utilizavel. Campos={campos}; colunas "
             f"escolhidas={col_raiz}/{col_cnpj}/{col_cd}; primeira linha={amostra}")
 
-    log.info("B3: %d companhias listadas em %d pagina(s) (campos: %s / %s / %s)",
-             len(out), pagina - 1, col_raiz, col_cnpj, col_cd)
+    # Se a B3 informa quantos registros existem, comparar com o que veio. Uma
+    # lista truncada nao se parece com erro: parece uma lista.
+    if total_informado:
+        try:
+            esperado = int(total_informado)
+            if len(df) < esperado:
+                log.warning("cadastro da B3 incompleto: %d de %d registros "
+                            "informados pela propria B3", len(df), esperado)
+        except (TypeError, ValueError):
+            pass
+
+    log.info("B3: %d companhias listadas (%d registros brutos de %s informados) "
+             "em %d pagina(s) de %d; campos %s / %s / %s",
+             len(out), len(df), total_informado, pagina - 1, total_paginas,
+             col_raiz, col_cnpj, col_cd)
     return out
