@@ -102,7 +102,7 @@ def defasagem_dias(step: pd.Series, referencia: pd.Timestamp) -> int:
 
 
 def soma_por_entidade(lucros, daily_index, lag_days: int, max_stale_days: int,
-                      trimestral: bool = False):
+                      trimestral: bool = False, pesos: dict | None = None):
     """Projeta o lucro de CADA companhia no calendario diario e soma.
 
     Somar por data_fim e so depois projetar esta errado, e o erro nao e sutil.
@@ -113,23 +113,31 @@ def soma_por_entidade(lucros, daily_index, lag_days: int, max_stale_days: int,
     o indice normalizado chegava a 20.000 numa serie de base 100.
 
     Aqui cada companhia vira a sua propria serie-degrau, com o mesmo teto de
-    validade das demais, e a soma e feita ponto a ponto. Devolve tambem quantas
-    companhias tinham lucro vigente em cada data -- sem esse numero nao da para
+    validade das demais, e a soma e feita ponto a ponto. Devolve tambem quanto
+    do indice tinha lucro vigente em cada data -- sem esse numero nao da para
     distinguir "o lucro agregado caiu" de "menos empresas foram somadas".
+
+    A segunda saida e medida em PESO do indice quando `pesos` e informado, e em
+    contagem de companhias quando nao e. Peso e o criterio certo: uma companhia
+    que vale 0,06% do Ibovespa nao deveria ter o mesmo poder de veto que uma que
+    vale 8,5%. Medido no dado real, exigir 80% das COMPANHIAS cortava a serie em
+    2014; exigir 80% do PESO a estende ate 2010, quando a cobertura ja era de
+    84,8% -- e o criterio fica mais exigente onde importa, nao menos.
 
     Args:
         lucros: DataFrame com cd_cvm, data_fim e lucro.
+        pesos: {cd_cvm normalizado: participacao no indice, em pontos percentuais}.
         trimestral: se True, cada companhia passa por soma movel de 4 trimestres
             ANTES da projecao. Somar trimestres de companhias diferentes e depois
             acumular 12 meses misturaria periodos distintos.
     """
     if lucros.empty:
         vazio = pd.Series(index=daily_index, dtype="float64")
-        return vazio, pd.Series(0, index=daily_index, dtype="int64")
+        return vazio, pd.Series(0.0, index=daily_index)
 
     total = pd.Series(0.0, index=daily_index)
-    cobertas = pd.Series(0, index=daily_index, dtype="int64")
-    for _, g in lucros.groupby("cd_cvm"):
+    cobertura = pd.Series(0.0, index=daily_index)
+    for cd, g in lucros.groupby("cd_cvm"):
         s = g.groupby("data_fim")["lucro"].sum().sort_index()
         if trimestral:
             s = ttm_from_quarterly(s)
@@ -137,8 +145,11 @@ def soma_por_entidade(lucros, daily_index, lag_days: int, max_stale_days: int,
                 continue
         d = step_to_daily(s, daily_index, lag_days, max_stale_days)
         total = total.add(d.fillna(0.0))
-        cobertas = cobertas.add(d.notna().astype("int64"))
-    return total.where(cobertas > 0), cobertas
+        # Peso da companhia no indice, ou 1 quando nao ha pesos: nesse caso a
+        # cobertura vira contagem, que e o comportamento anterior.
+        w = 1.0 if pesos is None else float(pesos.get(str(cd), 0.0))
+        cobertura = cobertura.add(d.notna().astype(float) * w)
+    return total.where(cobertura > 0), cobertura
 
 
 # ---------------------------------------------------------------------------
