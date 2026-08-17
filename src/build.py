@@ -34,10 +34,10 @@ logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s %(levelname)-7s %(name)s :: %(message)s")
 log = logging.getLogger("build")
 
-# Fracao minima do peso do Ibovespa que precisa ter lucro conciliado para que a
-# serie do IBOV seja publicada. Abaixo disso o agregado nao representa o indice
-# e a serie e suprimida. O mesmo numero limita quantas companhias podem faltar
-# na soma de uma data especifica.
+# Fracao minima do PESO do Ibovespa que precisa ter lucro conciliado para que a
+# serie seja publicada. Abaixo disso o agregado nao representa o indice e a
+# serie e suprimida. O mesmo numero, na mesma unidade, limita quanto do peso
+# pode faltar na soma de uma data especifica.
 COBERTURA_MINIMA_IBOV = 0.80
 
 
@@ -58,6 +58,7 @@ class Status:
     avisos: list = field(default_factory=list)
     vigencias: list = field(default_factory=list)
     conciliacao: dict = field(default_factory=dict)
+    dfp_ausentes: list = field(default_factory=list)
 
     def add(self, s: Stage) -> None:
         self.estagios.append(asdict(s))
@@ -219,7 +220,9 @@ def build_ibov(status: Status):
     st = Stage("lucros_cvm")
     lucros = pd.DataFrame()
     try:
-        dfp = cvm.fetch_range(range(2010, ano), "DFP")
+        # ate ano+1: o exercicio corrente pode ja ter arquivo no portal, e
+        # exclui-lo por convencao descartaria dado que existe.
+        dfp = cvm.fetch_range(range(2010, ano + 1), "DFP")
         try:
             itr = cvm.fetch_range(range(ano - 5, ano + 1), "ITR")
         except Exception as exc:  # noqa: BLE001
@@ -227,9 +230,20 @@ def build_ibov(status: Status):
             status.avisos.append(f"ITR indisponivel; serie do IBOV fica so anual. {exc}")
         lucros = pd.concat([dfp, itr], ignore_index=True) if not itr.empty else dfp
         st.ok, st.obs = True, len(lucros)
+        ausentes = list(dfp.attrs.get("anos_ausentes", []))
+        outras = list(dfp.attrs.get("anos_falhos", []))
         st.detalhe = (f"DFP {dfp['data_fim'].min().date()}..{dfp['data_fim'].max().date()}"
                       + (f" | ITR {itr['data_fim'].min().date()}..{itr['data_fim'].max().date()}"
-                         if not itr.empty else " | ITR ausente"))
+                         if not itr.empty else " | ITR ausente")
+                      + (f" | DFP nao publicado: {ausentes}" if ausentes else "")
+                      + (f" | DFP com erro: {len(outras)}" if outras else ""))
+        status.dfp_ausentes = ausentes
+        if ausentes:
+            status.avisos.append(
+                f"Exercicio(s) {', '.join(map(str, ausentes))} sem DFP no portal da CVM "
+                f"(HTTP 404 -- o arquivo nao existe, nao e falha de rede). Enquanto nao "
+                f"for publicado, o trecho correspondente da serie do Ibovespa se apoia "
+                f"no ITR, que cobre os ultimos cinco anos em frequencia trimestral.")
         cvm.salvar_cache(lucros, st.detalhe)
     except Exception as exc:  # noqa: BLE001
         st.detalhe = str(exc)[:600]
@@ -330,29 +344,33 @@ def build_ibov(status: Status):
                 f"foi selecionada -- codigos CVM em formatos incompativeis. "
                 f"exemplos casados={list(keys)[:5]}; "
                 f"exemplos na CVM={list(lucros['cd_cvm'].astype(str).unique()[:5])}")
-        # Cada companhia vira sua propria serie-degrau e as series sao somadas
-        # ponto a ponto. Ver metrics.soma_por_entidade para o motivo.
-        n_alvo = len(keys)
+        # Cobertura medida em PESO do indice, nao em contagem de companhias.
+        # Contar dava a uma empresa de 0,06% o mesmo poder de veto de uma de
+        # 8,5%, e era isso que cortava a serie em 2014: a cobertura POR PESO ja
+        # era de 84,8% em 2010.
+        pesos = dict(zip(casadas["cd_cvm"].map(reconcile.normalizar_cd_cvm),
+                         casadas["participacao_pct"].astype(float)))
+        peso_total = sum(pesos.values()) or 1.0
         lucro_diario_a, cob_a = metrics.soma_por_entidade(
             sel[sel["freq"] == "A"], out.index, REPORTING_LAG_DAYS_PIT,
-            MAX_STALE_DAYS_LUCRO_ANUAL)
+            MAX_STALE_DAYS_LUCRO_ANUAL, pesos=pesos)
         lucro_diario_t, cob_t = metrics.soma_por_entidade(
             sel[sel["freq"] == "T"], out.index, REPORTING_LAG_DAYS_PIT,
-            MAX_STALE_DAYS_LUCRO_TRIMESTRAL, trimestral=True)
+            MAX_STALE_DAYS_LUCRO_TRIMESTRAL, trimestral=True, pesos=pesos)
 
-        # Um agregado somado sobre um subconjunto encolhido nao e o agregado do
-        # indice -- e o mesmo criterio do portao de cobertura, agora aplicado
-        # data a data em vez de uma vez so.
-        min_emp = COBERTURA_MINIMA_IBOV * n_alvo
-        lucro_diario_a = lucro_diario_a.where(cob_a >= min_emp)
-        lucro_diario_t = lucro_diario_t.where(cob_t >= min_emp)
+        # Mesmo criterio do portao de cobertura, agora aplicado data a data em
+        # vez de uma vez so -- e na mesma unidade dele.
+        min_peso = COBERTURA_MINIMA_IBOV * peso_total
+        lucro_diario_a = lucro_diario_a.where(cob_a >= min_peso)
+        lucro_diario_t = lucro_diario_t.where(cob_t >= min_peso)
 
         # O trimestral tem precedencia onde existe; o anual cobre o trecho antigo.
         out["lucro_agregado"] = lucro_diario_t.combine_first(lucro_diario_a)
-        out["empresas_somadas"] = np.where(lucro_diario_t.notna(), cob_t, cob_a)
+        out["peso_coberto_pct"] = (np.where(lucro_diario_t.notna(), cob_t, cob_a)
+                                   / peso_total * 100.0)
         out["freq_lucro"] = np.where(lucro_diario_t.notna(), "trimestral", "anual")
         out.loc[out["lucro_agregado"].isna(), "freq_lucro"] = ""
-        out.loc[out["lucro_agregado"].isna(), "empresas_somadas"] = 0
+        out.loc[out["lucro_agregado"].isna(), "peso_coberto_pct"] = np.nan
 
         # Ancoragem: o indice e o agregado tem escalas diferentes (o indice e uma
         # media ponderada com redutor; o agregado e lucro em BRL). A razao entre
@@ -364,13 +382,15 @@ def build_ibov(status: Status):
         out["valuation_z"] = metrics.rolling_zscore(razao, STAT_WINDOW)
         out["valuation_pct"] = metrics.rolling_percentile(razao, STAT_WINDOW)
         st.ok, st.obs = True, int(razao.notna().sum())
-        emp = out.loc[out["lucro_agregado"].notna(), "empresas_somadas"]
-        st.detalhe = (f"cobertura {cobertura:.1%}; {len(sel)} linhas de lucro de "
-                      f"{sel['cd_cvm'].nunique()} companhias; exigidas >= "
-                      f"{min_emp:.0f} companhias por data (somadas: min "
-                      f"{int(emp.min()) if len(emp) else 0}, mediana "
-                      f"{int(emp.median()) if len(emp) else 0}); indicador normalizado "
-                      f"(base 100), NAO e P/E em nivel -- ver METODOLOGIA.md secao 4")
+        pc = out.loc[out["lucro_agregado"].notna(), "peso_coberto_pct"]
+        st.detalhe = (f"cobertura da carteira {cobertura:.1%}; {len(sel)} linhas de lucro "
+                      f"de {sel['cd_cvm'].nunique()} companhias; exigido >= "
+                      f"{COBERTURA_MINIMA_IBOV:.0%} do PESO em cada data (coberto: min "
+                      f"{pc.min():.1f}%, mediana {pc.median():.1f}%)" if len(pc) else
+                      f"cobertura da carteira {cobertura:.1%}; nenhuma data atingiu o "
+                      f"minimo de peso")
+        st.detalhe += ("; indicador normalizado (base 100), NAO e P/E em nivel -- "
+                       "ver METODOLOGIA.md secao 4")
     except Exception as exc:  # noqa: BLE001
         st.detalhe = str(exc)
         log.error("pe_ibov falhou: %s", exc)
