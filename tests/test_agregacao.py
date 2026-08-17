@@ -89,3 +89,63 @@ def test_sem_lucro_nenhum_devolve_serie_vazia_e_nao_zero():
     total, cobertas = metrics.soma_por_entidade(pd.DataFrame(), dias, 0, 400)
     assert total.isna().all(), "vazio e diferente de zero"
     assert (cobertas == 0).all()
+
+
+# ---------------------------------------------------------------------------
+# Cobertura em peso do indice, nao em contagem de companhias
+# ---------------------------------------------------------------------------
+
+def test_cobertura_e_medida_em_peso_e_nao_em_contagem():
+    """Uma companhia de 0,06% nao pode ter o mesmo poder de veto de uma de 8,5%.
+
+    Medido no dado real em 17/08/2026: exigir 80% das COMPANHIAS cortava a serie
+    do Ibovespa em 2014, enquanto a cobertura POR PESO ja era de 84,8% em 2010.
+    O criterio por contagem nao era mais conservador -- era so menos alinhado
+    com o que o indice e.
+    """
+    lucros = pd.DataFrame({
+        "cd_cvm": ["1", "2"],
+        "data_fim": pd.to_datetime(["2021-12-31", "2021-12-31"]),
+        "lucro": [100.0, 1.0],
+        "freq": ["A", "A"],
+    })
+    dias = pd.date_range("2022-06-01", "2022-12-31", freq="B")
+    pesos = {"1": 90.0, "2": 1.0}   # a primeira e quase o indice inteiro
+
+    # so a companhia grande tem lucro vigente
+    so_grande = lucros[lucros["cd_cvm"] == "1"]
+    _, cob = metrics.soma_por_entidade(so_grande, dias, 0, 900, pesos=pesos)
+    assert cob.iloc[0] == 90.0, "a cobertura tem de ser o PESO, nao a contagem"
+    # 90 de 91 pontos = 98,9%: passa num portao de 80% do peso...
+    assert cob.iloc[0] / sum(pesos.values()) > 0.80
+    # ...e reprovaria num portao de 80% da CONTAGEM (1 de 2 companhias = 50%)
+
+    _, cont = metrics.soma_por_entidade(so_grande, dias, 0, 900)
+    assert cont.iloc[0] == 1.0, "sem pesos, a cobertura volta a ser contagem"
+
+
+def test_sem_pesos_o_comportamento_anterior_e_preservado():
+    lucros = pd.DataFrame({
+        "cd_cvm": ["1", "2", "3"],
+        "data_fim": pd.to_datetime(["2021-12-31"] * 3),
+        "lucro": [10.0, 20.0, 30.0],
+        "freq": ["A"] * 3,
+    })
+    dias = pd.date_range("2022-06-01", "2022-08-31", freq="B")
+    total, cob = metrics.soma_por_entidade(lucros, dias, 0, 900)
+    assert total.iloc[0] == 60.0
+    assert cob.iloc[0] == 3.0
+
+
+def test_peso_de_companhia_fora_do_indice_nao_conta():
+    """Lucro de companhia que nao esta na carteira nao deve inflar a cobertura."""
+    lucros = pd.DataFrame({
+        "cd_cvm": ["1", "999"],
+        "data_fim": pd.to_datetime(["2021-12-31", "2021-12-31"]),
+        "lucro": [50.0, 50.0],
+        "freq": ["A", "A"],
+    })
+    dias = pd.date_range("2022-06-01", "2022-08-31", freq="B")
+    total, cob = metrics.soma_por_entidade(lucros, dias, 0, 900, pesos={"1": 40.0})
+    assert cob.iloc[0] == 40.0, "a companhia sem peso nao entra na cobertura"
+    assert total.iloc[0] == 100.0, "mas o lucro dela, se foi selecionada, entra na soma"
