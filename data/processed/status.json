@@ -1,5 +1,5 @@
 {
-  "gerado_em_utc": "2026-08-17T00:30:00+00:00",
+  "gerado_em_utc": "2026-08-17T00:37:07+00:00",
   "estagios": [
     {
       "nome": "precos_spx",
@@ -68,8 +68,8 @@
     {
       "nome": "pe_ibov",
       "ok": true,
-      "detalhe": "cobertura da carteira 100.0%; nenhuma data atingiu o minimo de peso; indicador normalizado (base 100), NAO e P/E em nivel -- ver METODOLOGIA.md secao 4",
-      "obs": 0,
+      "detalhe": "cobertura da carteira 100.0%; 2020 linhas de lucro de 76 companhias; exigido >= 80% do PESO em cada data (coberto: min 85.6%, mediana 95.9%); indicador normalizado (base 100), NAO e P/E em nivel -- ver METODOLOGIA.md secao 4",
+      "obs": 3824,
       "inicio": "",
       "fim": ""
     }
