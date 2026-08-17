@@ -149,3 +149,49 @@ def test_peso_de_companhia_fora_do_indice_nao_conta():
     total, cob = metrics.soma_por_entidade(lucros, dias, 0, 900, pesos={"1": 40.0})
     assert cob.iloc[0] == 40.0, "a companhia sem peso nao entra na cobertura"
     assert total.iloc[0] == 100.0, "mas o lucro dela, se foi selecionada, entra na soma"
+
+
+def test_pesos_e_lucros_usam_a_mesma_forma_de_codigo():
+    """Regressao: a CVM zera a esquerda e o mapa de pesos nao.
+
+    Este e o MESMO erro de normalizacao que ja tinha esvaziado a serie uma vez,
+    reintroduzido no commit que passou a medir cobertura por peso. O sintoma e
+    traicoeiro: cobertura da carteira de 100%, nenhuma excecao, e "nenhuma data
+    atingiu o minimo de peso". Quem le o relatorio ve dois numeros que parecem
+    se contradizer e nao ha nada apontando para a causa.
+    """
+    from src import reconcile
+
+    lucros = pd.DataFrame({
+        "cd_cvm": ["000906", "009512"],          # como a CVM publica
+        "data_fim": pd.to_datetime(["2021-12-31"] * 2),
+        "lucro": [100.0, 50.0],
+        "freq": ["A", "A"],
+    })
+    pesos_norm = {"906": 60.0, "9512": 30.0}     # como a conciliacao devolve
+    dias = pd.date_range("2022-06-01", "2022-08-31", freq="B")
+
+    # sem normalizar, a cobertura e zero e a serie some
+    _, cob_cru = metrics.soma_por_entidade(lucros, dias, 0, 900, pesos=pesos_norm)
+    assert cob_cru.iloc[0] == 0.0, "documenta o erro: chave crua nao casa"
+
+    # normalizando os dois lados, a cobertura e o peso de verdade
+    lu = lucros.assign(cd_cvm=lucros["cd_cvm"].map(reconcile.normalizar_cd_cvm))
+    total, cob = metrics.soma_por_entidade(lu, dias, 0, 900, pesos=pesos_norm)
+    assert cob.iloc[0] == 90.0
+    assert total.iloc[0] == 150.0
+
+
+def test_companhia_com_dois_ativos_soma_os_dois_pesos():
+    """PETR3 e PETR4 sao a mesma companhia; o peso dela e a soma dos dois."""
+    from src import reconcile
+
+    casadas = pd.DataFrame({
+        "codigo": ["PETR3", "PETR4", "VALE3"],
+        "cd_cvm": ["9512", "9512", "906"],
+        "participacao_pct": [4.5, 8.0, 12.0],
+    })
+    pesos = (casadas.assign(_cd=casadas["cd_cvm"].map(reconcile.normalizar_cd_cvm))
+             .groupby("_cd")["participacao_pct"].sum().to_dict())
+    assert pesos["9512"] == 12.5, "os dois papeis da mesma empresa somam"
+    assert pesos["906"] == 12.0
