@@ -136,18 +136,29 @@ def fetch_range(years: Iterable[int], kind: str) -> pd.DataFrame:
     que um erro.
     """
     fn = fetch_dfp_year if kind == "DFP" else fetch_itr_year
-    frames, falhas = [], []
+    frames, falhas, ausentes = [], [], []
     for y in years:
         try:
             frames.append(fn(y))
             log.info("CVM %s %d: ok", kind, y)
         except Exception as exc:  # noqa: BLE001
-            falhas.append(f"{y}: {str(exc)[:120]}")
-            log.warning("CVM %s %d indisponivel: %s", kind, y, str(exc)[:200])
+            # 404 e informacao, nao avaria: o exercicio simplesmente nao foi
+            # publicado no portal. Tratar os dois como a mesma coisa faz o
+            # diagnostico dizer "falhou" quando a resposta certa e "ainda nao
+            # existe" -- e leva a procurar defeito onde nao ha.
+            if "404" in str(exc):
+                ausentes.append(y)
+                log.info("CVM %s %d: nao publicado no portal (404)", kind, y)
+            else:
+                falhas.append(f"{y}: {str(exc)[:120]}")
+                log.warning("CVM %s %d indisponivel: %s", kind, y, str(exc)[:200])
     if not frames:
-        raise SourceUnavailable(f"nenhum ano de {kind} obtido. {' | '.join(falhas[:3])}")
+        raise SourceUnavailable(
+            f"nenhum ano de {kind} obtido. nao publicados: {ausentes}; "
+            f"erros: {' | '.join(falhas[:3])}")
     df = pd.concat(frames, ignore_index=True)
     df.attrs["anos_falhos"] = falhas
+    df.attrs["anos_ausentes"] = ausentes
     return df
 
 
