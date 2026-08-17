@@ -344,13 +344,26 @@ def build_ibov(status: Status):
                 f"foi selecionada -- codigos CVM em formatos incompativeis. "
                 f"exemplos casados={list(keys)[:5]}; "
                 f"exemplos na CVM={list(lucros['cd_cvm'].astype(str).unique()[:5])}")
-        # Cobertura medida em PESO do indice, nao em contagem de companhias.
-        # Contar dava a uma empresa de 0,06% o mesmo poder de veto de uma de
-        # 8,5%, e era isso que cortava a serie em 2014: a cobertura POR PESO ja
-        # era de 84,8% em 2010.
-        pesos = dict(zip(casadas["cd_cvm"].map(reconcile.normalizar_cd_cvm),
-                         casadas["participacao_pct"].astype(float)))
-        peso_total = sum(pesos.values()) or 1.0
+
+        # DUAS armadilhas aqui, e eu cai nas duas na primeira versao:
+        #
+        # 1. A chave. `pesos` e indexado pelo codigo NORMALIZADO e sel traz o
+        #    codigo cru da CVM, com zeros a esquerda. Sem normalizar os dois
+        #    lados, todo get() devolve 0 e a serie inteira e filtrada -- foi
+        #    exatamente o que aconteceu, e o sintoma foi "nenhuma data atingiu
+        #    o minimo de peso" com cobertura de 100%.
+        # 2. A soma. Uma companhia pode ter mais de um ativo na carteira
+        #    (PETR3 e PETR4 sao a mesma empresa). dict(zip(...)) manteria so o
+        #    ultimo peso; o certo e somar os dois, porque a companhia responde
+        #    por ambos.
+        sel["cd_cvm"] = sel["cd_cvm"].map(reconcile.normalizar_cd_cvm)
+        pesos = (casadas.assign(_cd=casadas["cd_cvm"].map(reconcile.normalizar_cd_cvm))
+                 .groupby("_cd")["participacao_pct"].sum().astype(float).to_dict())
+        # Denominador: o peso da carteira INTEIRA, nao so o da parte conciliada.
+        # Usar o peso conciliado como base esconderia o que ficou de fora.
+        peso_total = float(comp.get("participacao_pct", pd.Series(dtype=float)).sum()) \
+            or sum(pesos.values()) or 1.0
+
         lucro_diario_a, cob_a = metrics.soma_por_entidade(
             sel[sel["freq"] == "A"], out.index, REPORTING_LAG_DAYS_PIT,
             MAX_STALE_DAYS_LUCRO_ANUAL, pesos=pesos)
