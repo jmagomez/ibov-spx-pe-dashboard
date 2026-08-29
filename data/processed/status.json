@@ -1,13 +1,13 @@
 {
-  "gerado_em_utc": "2026-08-22T12:31:38+00:00",
+  "gerado_em_utc": "2026-08-29T16:09:07+00:00",
   "estagios": [
     {
       "nome": "precos_spx",
       "ok": true,
-      "detalhe": "provedor: yfinance; horizonte: 16.6 anos (4184 pregoes)",
-      "obs": 4184,
+      "detalhe": "provedor: yfinance; horizonte: 16.6 anos (4188 pregoes)",
+      "obs": 4188,
       "inicio": "2010-01-04",
-      "fim": "2026-08-21"
+      "fim": "2026-08-27"
     },
     {
       "nome": "eps_spx",
@@ -28,16 +28,16 @@
     {
       "nome": "precos_ibov",
       "ok": true,
-      "detalhe": "provedor: yfinance; horizonte: 16.6 anos (4125 pregoes)",
-      "obs": 4125,
+      "detalhe": "provedor: yfinance; horizonte: 16.6 anos (4129 pregoes)",
+      "obs": 4129,
       "inicio": "2010-01-04",
-      "fim": "2026-08-21"
+      "fim": "2026-08-27"
     },
     {
       "nome": "composicao_ibov_b3",
       "ok": true,
       "detalhe": "carteira VIGENTE (B3 nao publica historico aberto de composicao)",
-      "obs": 78,
+      "obs": 77,
       "inicio": "",
       "fim": ""
     },
@@ -45,7 +45,7 @@
       "nome": "lucros_cvm",
       "ok": true,
       "detalhe": "DFP 2010-12-31..2026-03-31 | ITR 2021-03-31..2026-06-30",
-      "obs": 13998,
+      "obs": 14004,
       "inicio": "",
       "fim": ""
     },
@@ -53,30 +53,30 @@
       "nome": "cadastro_b3",
       "ok": true,
       "detalhe": "ponte codigo de negociacao -> CNPJ",
-      "obs": 3484,
+      "obs": 3489,
       "inicio": "",
       "fim": ""
     },
     {
       "nome": "conciliacao_ibov",
       "ok": true,
-      "detalhe": "78/78 ativos; cobertura por peso = 100.0%; 78 via codigo CVM, 0 via CNPJ, 0 via razao social",
-      "obs": 78,
+      "detalhe": "77/77 ativos; cobertura por peso = 100.0%; 77 via codigo CVM, 0 via CNPJ, 0 via razao social",
+      "obs": 77,
       "inicio": "",
       "fim": ""
     },
     {
       "nome": "pe_ibov",
       "ok": true,
-      "detalhe": "cobertura da carteira 100.0%; 2316 linhas de lucro de 76 companhias; exigido >= 80% do PESO em cada data (coberto: min 85.6%, mediana 95.9%); indicador normalizado (base 100), NAO e P/E em nivel -- ver METODOLOGIA.md secao 4",
-      "obs": 3829,
+      "detalhe": "cobertura da carteira 100.0%; 2283 linhas de lucro de 75 companhias; exigido >= 80% do PESO em cada data (coberto: min 85.7%, mediana 95.9%); indicador normalizado (base 100), NAO e P/E em nivel -- ver METODOLOGIA.md secao 4",
+      "obs": 3833,
       "inicio": "",
       "fim": ""
     }
   ],
   "avisos": [
-    "eps_spx: a fonte parou em 2024-06-01 e a ultima observacao venceu ha 691 dias. O trecho final da serie fica VAZIO em vez de repetir o ultimo valor -- ver METODOLOGIA.md, secao de validade.",
-    "cape_shiller: a fonte parou em 2024-09-01 e a ultima observacao venceu ha 599 dias. O trecho final da serie fica VAZIO em vez de repetir o ultimo valor -- ver METODOLOGIA.md, secao de validade.",
+    "eps_spx: a fonte parou em 2024-06-01 e a ultima observacao venceu ha 697 dias. O trecho final da serie fica VAZIO em vez de repetir o ultimo valor -- ver METODOLOGIA.md, secao de validade.",
+    "cape_shiller: a fonte parou em 2024-09-01 e a ultima observacao venceu ha 605 dias. O trecho final da serie fica VAZIO em vez de repetir o ultimo valor -- ver METODOLOGIA.md, secao de validade.",
     "5 CNPJ(s) apontam para mais de um codigo CVM e foram RECUSADOS em vez de desempatados por criterio arbitrario.",
     "Teto de validade aplicado retroativamente aos dados de 08/08/2026: o LPA estava repetido desde 03/06/2024 e inflava o P/E do trecho final. O trecho sem lastro foi esvaziado, nao corrigido por estimativa."
   ],
@@ -85,19 +85,19 @@
       "fonte": "eps_spx",
       "ultima_observacao": "2024-06-01",
       "vigente_ate": "2024-09-29",
-      "defasagem_dias": 811,
+      "defasagem_dias": 817,
       "vencida": true
     },
     {
       "fonte": "cape_shiller",
       "ultima_observacao": "2024-09-01",
       "vigente_ate": "2024-12-30",
-      "defasagem_dias": 719,
+      "defasagem_dias": 725,
       "vencida": true
     }
   ],
   "conciliacao": {
-    "por_codigo_cvm": 78,
+    "por_codigo_cvm": 77,
     "por_cnpj": 0,
     "por_nome": 0,
     "sem_correspondencia": [],
@@ -140,7 +140,7 @@
       }
     ],
     "cobertura_por_peso": 1.0,
-    "ativos": "78/78"
+    "ativos": "77/77"
   },
   "dfp_ausentes": [],
   "reparo_validade": {
