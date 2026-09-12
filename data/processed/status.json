@@ -1,13 +1,13 @@
 {
-  "gerado_em_utc": "2026-09-05T14:30:44+00:00",
+  "gerado_em_utc": "2026-09-12T14:56:03+00:00",
   "estagios": [
     {
       "nome": "precos_spx",
       "ok": true,
-      "detalhe": "provedor: yfinance; horizonte: 16.7 anos (4194 pregoes)",
-      "obs": 4194,
+      "detalhe": "provedor: yfinance; horizonte: 16.7 anos (4198 pregoes)",
+      "obs": 4198,
       "inicio": "2010-01-04",
-      "fim": "2026-09-04"
+      "fim": "2026-09-11"
     },
     {
       "nome": "eps_spx",
@@ -28,10 +28,10 @@
     {
       "nome": "precos_ibov",
       "ok": true,
-      "detalhe": "provedor: yfinance; horizonte: 16.7 anos (4135 pregoes)",
-      "obs": 4135,
+      "detalhe": "provedor: yfinance; horizonte: 16.7 anos (4139 pregoes)",
+      "obs": 4139,
       "inicio": "2010-01-04",
-      "fim": "2026-09-04"
+      "fim": "2026-09-11"
     },
     {
       "nome": "composicao_ibov_b3",
@@ -44,8 +44,8 @@
     {
       "nome": "lucros_cvm",
       "ok": true,
-      "detalhe": "DFP 2010-12-31..2026-03-31 | ITR 2021-03-31..2026-06-30",
-      "obs": 14007,
+      "detalhe": "DFP 2010-12-31..2026-06-30 | ITR 2021-03-31..2026-06-30",
+      "obs": 14010,
       "inicio": "",
       "fim": ""
     },
@@ -53,7 +53,7 @@
       "nome": "cadastro_b3",
       "ok": true,
       "detalhe": "ponte codigo de negociacao -> CNPJ",
-      "obs": 3502,
+      "obs": 3506,
       "inicio": "",
       "fim": ""
     },
@@ -68,15 +68,15 @@
     {
       "nome": "pe_ibov",
       "ok": true,
-      "detalhe": "cobertura da carteira 100.0%; 2261 linhas de lucro de 74 companhias; exigido >= 80% do PESO em cada data (coberto: min 85.8%, mediana 95.9%); indicador normalizado (base 100), NAO e P/E em nivel -- ver METODOLOGIA.md secao 4",
-      "obs": 3839,
+      "detalhe": "cobertura da carteira 100.0%; 2261 linhas de lucro de 74 companhias; exigido >= 80% do PESO em cada data (coberto: min 85.6%, mediana 95.9%); indicador normalizado (base 100), NAO e P/E em nivel -- ver METODOLOGIA.md secao 4",
+      "obs": 3843,
       "inicio": "",
       "fim": ""
     }
   ],
   "avisos": [
-    "eps_spx: a fonte parou em 2024-06-01 e a ultima observacao venceu ha 705 dias. O trecho final da serie fica VAZIO em vez de repetir o ultimo valor -- ver METODOLOGIA.md, secao de validade.",
-    "cape_shiller: a fonte parou em 2024-09-01 e a ultima observacao venceu ha 613 dias. O trecho final da serie fica VAZIO em vez de repetir o ultimo valor -- ver METODOLOGIA.md, secao de validade.",
+    "eps_spx: a fonte parou em 2024-06-01 e a ultima observacao venceu ha 712 dias. O trecho final da serie fica VAZIO em vez de repetir o ultimo valor -- ver METODOLOGIA.md, secao de validade.",
+    "cape_shiller: a fonte parou em 2024-09-01 e a ultima observacao venceu ha 620 dias. O trecho final da serie fica VAZIO em vez de repetir o ultimo valor -- ver METODOLOGIA.md, secao de validade.",
     "5 CNPJ(s) apontam para mais de um codigo CVM e foram RECUSADOS em vez de desempatados por criterio arbitrario.",
     "Teto de validade aplicado retroativamente aos dados de 08/08/2026: o LPA estava repetido desde 03/06/2024 e inflava o P/E do trecho final. O trecho sem lastro foi esvaziado, nao corrigido por estimativa."
   ],
@@ -85,14 +85,14 @@
       "fonte": "eps_spx",
       "ultima_observacao": "2024-06-01",
       "vigente_ate": "2024-09-29",
-      "defasagem_dias": 825,
+      "defasagem_dias": 832,
       "vencida": true
     },
     {
       "fonte": "cape_shiller",
       "ultima_observacao": "2024-09-01",
       "vigente_ate": "2024-12-30",
-      "defasagem_dias": 733,
+      "defasagem_dias": 740,
       "vencida": true
     }
   ],
