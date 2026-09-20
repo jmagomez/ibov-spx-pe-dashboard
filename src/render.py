@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 
 import pandas as pd
 
-from .config import DOCS, PROCESSED
+from .config import DOCS, PROCESSED, RAW_BASE
 
 log = logging.getLogger("render")
 
@@ -44,6 +44,9 @@ def main() -> int:
     st_path = PROCESSED / "status.json"
     status = json.loads(st_path.read_text(encoding="utf-8")) if st_path.exists() else {}
 
+    ultimo_pregao = max([d.index.max() for d in (spx, ibov) if not d.empty],
+                        default=pd.NaT)
+
     dados = {
         "spx_pe": _serie(spx, "pe"),
         "spx_pe_pit": _serie(spx, "pe_pit"),
@@ -60,12 +63,35 @@ def main() -> int:
     }
 
     def _ult(df: pd.DataFrame, col: str):
+        """Ultimo valor da serie, com variacao e IDADE.
+
+        A idade e o campo que faltava, e a ausencia dela era um defeito de
+        leitura, nao de estilo: sob o titulo "Situacao atual" o cartao exibia,
+        em letra garrafal, o P/E de junho de 2024 -- ultimo valor com lastro --
+        com a data verdadeira em cinza, 11px, embaixo. Quem bate o olho le o
+        numero grande. Agora o cartao diz na propria cara quantos dias tem o
+        numero, e se marca como vencido quando a serie parou de andar.
+        """
         if df.empty or col not in df.columns:
             return None
         s = df[col].dropna()
         if s.empty:
             return None
-        return {"data": s.index[-1].strftime("%Y-%m-%d"), "valor": round(float(s.iloc[-1]), 2)}
+        atual = float(s.iloc[-1])
+        anterior = float(s.iloc[-2]) if len(s) > 1 else None
+        data = s.index[-1]
+        idade = int((ultimo_pregao - data).days) if pd.notna(ultimo_pregao) else 0
+        return {
+            "data": data.strftime("%d/%m/%Y"),
+            "valor": round(atual, 2),
+            "delta": round(atual - anterior, 2) if anterior is not None else None,
+            "delta_pct": (round((atual / anterior - 1) * 100, 2)
+                          if anterior not in (None, 0) else None),
+            "idade_dias": idade,
+            # 7 dias cobre feriado prolongado em qualquer das duas pracas. Acima
+            # disso a serie nao e "de hoje", e o cartao para de fingir que e.
+            "vencido": idade > 7,
+        }
 
     cartoes = {
         "spx_pe": _ult(spx, "pe"),
@@ -91,6 +117,13 @@ def main() -> int:
     html = html.replace("__COMPOSICAO__", json.dumps(comp_rows, ensure_ascii=False))
     html = html.replace("__GERADO__",
                         datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M UTC"))
+    html = html.replace("__RAW__", RAW_BASE)
+    # "Gerado em" e a hora do job; "dados ate" e a ultima data com numero. Sao
+    # coisas diferentes e confundi-las e o jeito mais facil de olhar um painel
+    # parado e achar que esta atualizado, porque o rodape mudou de hora.
+    html = html.replace("__DADOS_ATE__",
+                        ultimo_pregao.strftime("%d/%m/%Y") if pd.notna(ultimo_pregao)
+                        else "sem dados")
     (DOCS / "index.html").write_text(html, encoding="utf-8")
     log.info("docs/index.html gerado")
     return 0
@@ -123,6 +156,14 @@ h2{font-size:18px;margin:34px 0 12px;color:var(--navy2)}
 .card .val{font-size:27px;font-weight:700;color:var(--deep);margin:4px 0 2px}
 .card .dt{font-size:11.5px;color:var(--gray)}
 .card .na{font-size:15px;font-weight:600;color:var(--bad);margin:8px 0 2px}
+.card .delta{font-size:12.5px;font-weight:600;margin-left:7px;vertical-align:3px}
+.card .delta.up{color:var(--ok)} .card .delta.down{color:var(--bad)}
+.card .delta.flat{color:var(--gray)}
+/* Valor sem lastro recente nao pode ter a mesma aparencia de valor de hoje. */
+.card.stale{border-color:var(--gold);background:#FDF9F2}
+.card.stale .val{color:var(--gray)}
+.card .stale-tag{display:inline-block;margin-top:6px;padding:2px 8px;border-radius:11px;
+  background:#F6E7CE;color:#8A5A12;font-size:11px;font-weight:600}
 .chartbox{border:1px solid var(--line);border-radius:6px;padding:16px;margin:14px 0;background:#fff}
 .chartbox h3{margin:0 0 2px;font-size:15px;color:var(--navy2)}
 .chartbox .sub{margin:0 0 12px;font-size:12.5px;color:var(--gray)}
@@ -147,6 +188,8 @@ code{background:var(--tint);padding:1px 5px;border-radius:3px;font-size:12.5px}
   <h1>P/E do Ibovespa e do S&amp;P 500 - base diaria desde 2010</h1>
   <p>Pipeline reprodutivel, fontes primarias e nenhum numero estimado. Onde a fonte nao cobre o periodo,
      a serie fica vazia em vez de preenchida. Metodologia, limitacoes e referencias no repositorio.</p>
+  <p style="margin-top:10px;color:#8FB7D4;font-size:13px">
+     Dados ate <b style="color:#fff">__DADOS_ATE__</b> &middot; execucao de __GERADO__</p>
 </header>
 <div class="wrap">
 
@@ -199,6 +242,23 @@ code{background:var(--tint);padding:1px 5px;border-radius:3px;font-size:12.5px}
      O trecho anterior a cobertura de ITR usa lucro anual da DFP.</p>
   <div id="w-ibov"><canvas id="c-ibov"></canvas></div>
 </div>
+<div class="chartbox">
+  <h3>Posicao do indice de valuation na propria historia (z-score, janela de 10 anos)</h3>
+  <p class="sub">Quantos desvios-padrao a razao atual esta da propria media de 10 anos.
+     Zero e a media da janela; nao ha nivel "certo".</p>
+  <div id="w-ibovz"><canvas id="c-ibovz"></canvas></div>
+</div>
+
+<h2>A unica comparacao que os dois indices admitem</h2>
+<div class="chartbox">
+  <h3>Percentil de cada indice contra a propria historia (janela de 10 anos)</h3>
+  <p class="sub">Aqui as duas linhas podem ficar no mesmo eixo, e so aqui. Nao se compara o
+     P/E do S&amp;P com o indicador do Ibovespa - compara-se onde CADA UM esta dentro da
+     propria distribuicao dos ultimos dez anos. Uma linha em 90 quer dizer "caro para o
+     proprio padrao", nao "caro em relacao ao outro indice". As janelas podem comecar em
+     datas diferentes, conforme o inicio de cada serie.</p>
+  <div id="w-cmp"><canvas id="c-cmp"></canvas></div>
+</div>
 
 <h2>Diagnostico da coleta</h2>
 <p style="font-size:13.5px;color:var(--gray);margin-top:-4px">
@@ -207,6 +267,16 @@ code{background:var(--tint);padding:1px 5px;border-radius:3px;font-size:12.5px}
 <table id="t-status"><thead><tr>
   <th>Estagio</th><th>Situacao</th><th class="num">Observacoes</th><th>Periodo</th><th>Detalhe</th>
 </tr></thead><tbody></tbody></table>
+
+<h3 style="font-size:15px;color:var(--navy2);margin:26px 0 4px">Validade da ultima observacao de cada fonte</h3>
+<p style="font-size:13.5px;color:var(--gray);margin:0 0 10px">
+  Uma fonte que para de ser atualizada nao muda de aparencia no grafico - a linha
+  simplesmente continua. Esta tabela diz ate quando cada uma tem lastro.</p>
+<table id="t-vig"><thead><tr>
+  <th>Fonte</th><th>Ultima observacao</th><th>Vigente ate</th>
+  <th class="num">Defasagem (dias)</th><th>Situacao</th>
+</tr></thead><tbody></tbody></table>
+
 <div id="avisos"></div>
 
 <h2>Carteira vigente do Ibovespa (30 maiores pesos)</h2>
@@ -217,9 +287,22 @@ code{background:var(--tint);padding:1px 5px;border-radius:3px;font-size:12.5px}
   <th>Codigo</th><th>Empresa</th><th>Tipo</th><th class="num">Participacao (%)</th>
 </tr></thead><tbody></tbody></table>
 
+<h2>Dados brutos</h2>
+<p style="font-size:13.5px;color:var(--gray);margin-top:-4px">
+  Os CSVs tem a mesma granularidade dos graficos - nada foi agregado ou suavizado para a tela.
+  O <code>status.json</code> e o diagnostico completo desta execucao, incluindo o que esta
+  resumido acima.</p>
+<p style="font-size:13.5px">
+  <a href="__RAW__/spx.csv">spx.csv</a> &middot;
+  <a href="__RAW__/ibov.csv">ibov.csv</a> &middot;
+  <a href="__RAW__/comparativo.csv">comparativo.csv</a> &middot;
+  <a href="__RAW__/ibov_composicao.csv">ibov_composicao.csv</a> &middot;
+  <a href="__RAW__/status.json">status.json</a>
+</p>
+
 <footer>
-  Gerado em __GERADO__ - Atualizacao automatica aos sabados as 9h (BRT) -
-  Este material e informativo e nao constitui recomendacao de investimento.
+  Execucao de __GERADO__ - dados ate __DADOS_ATE__ - atualizacao automatica em dias uteis,
+  as 9h (BRT) - Este material e informativo e nao constitui recomendacao de investimento.
 </footer>
 </div>
 
@@ -234,14 +317,31 @@ const c = n => CSS.getPropertyValue(n).trim();
 
 function pts(arr){ return arr.map(([d,v]) => ({x:d, y:v})); }
 
+// Chart.js vem de CDN. Se o CDN nao responder -- rede corporativa, leitura
+// offline do artefato, bloqueio de dominio -- o `new Chart` levanta e, sem esta
+// guarda, a excecao interrompe o script inteiro: some o diagnostico da coleta,
+// some a carteira, some tudo o que e renderizado depois dos graficos. O painel
+// sem grafico ainda e util; o painel em branco nao e.
+const TEM_CHART = (typeof Chart !== 'undefined');
+
+function aviso(wrapId, texto){
+  const el = document.getElementById(wrapId);
+  if (el) el.innerHTML = '<div class="empty">' + texto + '</div>';
+}
+
 function linha(canvasId, wrapId, series, opts){
   const vazio = series.every(s => !s.data || s.data.length === 0);
   if (vazio){
-    document.getElementById(wrapId).innerHTML =
-      '<div class="empty">Sem dados publicaveis para este grafico nesta execucao.<br>' +
-      'Consulte o diagnostico da coleta abaixo para a causa.</div>';
+    aviso(wrapId, 'Sem dados publicaveis para este grafico nesta execucao.<br>' +
+                  'Consulte o diagnostico da coleta abaixo para a causa.');
     return;
   }
+  if (!TEM_CHART){
+    aviso(wrapId, 'A biblioteca de graficos (Chart.js, via CDN) nao carregou.<br>' +
+                  'Os dados existem e estao nos CSVs linkados no fim da pagina.');
+    return;
+  }
+  try {
   new Chart(document.getElementById(canvasId), {
     type:'line',
     data:{ datasets: series.map(s => ({
@@ -264,6 +364,9 @@ function linha(canvasId, wrapId, series, opts){
       }
     }
   });
+  } catch (e) {
+    aviso(wrapId, 'Falha ao desenhar este grafico: ' + e.message);
+  }
 }
 
 const defs = [
@@ -274,12 +377,30 @@ const defs = [
   ['ibov_val','Ibovespa - Indice de valuation',''],
   ['ibov_pct','Ibovespa - Percentil',''],
 ];
+function deltaHtml(v){
+  if (v.delta === null || v.delta === undefined) return '';
+  const cls = v.delta > 0 ? 'up' : (v.delta < 0 ? 'down' : 'flat');
+  const sinal = v.delta > 0 ? '+' : '';
+  const pct = (v.delta_pct === null || v.delta_pct === undefined)
+      ? '' : ' ('+sinal+v.delta_pct.toFixed(2)+'%)';
+  return '<span class="delta '+cls+'">'+sinal+v.delta.toFixed(2)+pct+'</span>';
+}
+
 document.getElementById('cards').innerHTML = defs.map(function(d){
   const k = d[0], lbl = d[1], suf = d[2];
   const v = CARTOES[k];
-  return '<div class="card"><div class="lbl">'+lbl+'</div>' +
-    (v ? '<div class="val">'+v.valor+suf+'</div><div class="dt">em '+v.data+'</div>'
-       : '<div class="na">indisponivel</div><div class="dt">fonte nao retornou dados</div>') +
+  if (!v){
+    return '<div class="card"><div class="lbl">'+lbl+'</div>' +
+      '<div class="na">indisponivel</div>' +
+      '<div class="dt">fonte nao retornou dados</div></div>';
+  }
+  // A comparacao e com a observacao anterior DA PROPRIA SERIE, que nem sempre e
+  // o pregao anterior: o CAPE e mensal. Por isso o rotulo diz "vs. anterior".
+  return '<div class="card'+(v.vencido ? ' stale' : '')+'">' +
+    '<div class="lbl">'+lbl+'</div>' +
+    '<div class="val">'+v.valor+suf+deltaHtml(v)+'</div>' +
+    '<div class="dt">em '+v.data+' &middot; vs. anterior</div>' +
+    (v.vencido ? '<div class="stale-tag">sem atualizacao ha '+v.idade_dias+' dias</div>' : '') +
     '</div>';
 }).join('');
 
@@ -296,6 +417,13 @@ linha('c-pct','w-pct',[
 linha('c-ibov','w-ibov',[
   {label:'Ibovespa - indice de valuation (base 100)', data:DADOS.ibov_val, cor:c('--gold'), w:1.8},
 ], {y:'base 100'});
+linha('c-ibovz','w-ibovz',[
+  {label:'Ibovespa - z-score do indicador de valuation', data:DADOS.ibov_z, cor:c('--gold'), w:1.8},
+], {y:'desvios-padrao'});
+linha('c-cmp','w-cmp',[
+  {label:'S&P 500 - percentil do P/E', data:DADOS.spx_pct, cor:c('--deep'), w:1.8},
+  {label:'Ibovespa - percentil do indicador de valuation', data:DADOS.ibov_pct, cor:c('--gold'), w:1.8},
+], {y:'percentil (0-100)'});
 
 const tb = document.querySelector('#t-status tbody');
 (STATUS.estagios||[]).forEach(function(e){
@@ -308,6 +436,25 @@ const tb = document.querySelector('#t-status tbody');
     '<td style="font-size:12px;color:var(--gray)">'+(e.detalhe||'')+'</td>';
   tb.appendChild(tr);
 });
+const tv = document.querySelector('#t-vig tbody');
+const vigs = STATUS.vigencias || [];
+if (vigs.length){
+  vigs.forEach(function(v){
+    const tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td><code>'+v.fonte+'</code></td>' +
+      '<td>'+(v.ultima_observacao||'-')+'</td>' +
+      '<td>'+(v.vigente_ate||'-')+'</td>' +
+      '<td class="num">'+(v.defasagem_dias!=null ? v.defasagem_dias : '-')+'</td>' +
+      '<td><span class="pill '+(v.vencida?'fail':'ok')+'">' +
+        (v.vencida?'vencida':'vigente')+'</span></td>';
+    tv.appendChild(tr);
+  });
+} else {
+  tv.innerHTML = '<tr><td colspan="5" class="empty">' +
+    'Nenhuma fonte com teto de validade aplicavel nesta execucao.</td></tr>';
+}
+
 if ((STATUS.avisos||[]).length){
   document.getElementById('avisos').innerHTML =
     STATUS.avisos.map(function(a){ return '<div class="alert">'+a+'</div>'; }).join('');
