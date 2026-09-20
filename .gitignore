@@ -4,3 +4,12 @@ __pycache__/
 .pytest_cache/
 data/raw/*
 !data/raw/.gitkeep
+
+# Corpo do e-mail do dia: efemero por construcao. E enviado na hora e vai junto
+# no artefato da execucao; versionar geraria um commit por dia de um arquivo que
+# ninguem le no repositorio. O digest_estado.json, esse SIM e versionado -- e a
+# memoria do que ja foi comunicado, e sem ele o resumo de amanha nao sabe o que
+# mudou.
+data/processed/digest.html
+data/processed/digest.txt
+data/processed/digest_assunto.txt
