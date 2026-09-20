@@ -15,6 +15,16 @@ DOCS = ROOT / "docs"
 # Inicio da janela de analise solicitada.
 START_DATE = "2010-01-01"
 
+# --- Enderecos publicados ---------------------------------------------------
+# O GitHub Pages serve APENAS a pasta /docs. Um link relativo para
+# ../data/processed a partir do dashboard publicado quebra, porque data/ nao
+# esta dentro da raiz servida. Os CSVs sao linkados pelo endereco raw do
+# repositorio, e o dashboard, pelo endereco do Pages. Os dois entram tambem no
+# e-mail diario.
+REPO_URL = "https://github.com/jmagomez/ibov-spx-pe-dashboard"
+RAW_BASE = f"{REPO_URL}/raw/main/data/processed"
+DASHBOARD_URL = "https://jmagomez.github.io/ibov-spx-pe-dashboard/"
+
 # --- Fontes -----------------------------------------------------------------
 # Precos diarios dos indices (CSV livre, sem chave).
 STOOQ_TEMPLATE = "https://stooq.com/q/d/l/?s={symbol}&i=d"
@@ -27,11 +37,34 @@ SPDJI_EPS_XLSX = (
     "https://www.spglobal.com/spdji/en/documents/additional-material/sp-500-eps-est.xlsx"
 )
 
-# Robert Shiller (Yale) - planilha ie_data, base do CAPE.
-SHILLER_XLS = (
+# Robert Shiller (Yale) - planilha ie_data, base do CAPE e fonte alternativa de
+# LPA 12m do S&P 500.
+#
+# ATENCAO, e a causa de um defeito que ficou dois anos no ar: o endereco
+# ".../downloads/ie_data.xls", sem o segmento de pasta, continua respondendo 200
+# e continua entregando um XLS -- so que CONGELADO em 2024. Foi por isso que a
+# serie de lucro do S&P parou em 06/2024 e o CAPE em 09/2024, com todas as
+# fontes marcadas "ok" no diagnostico: o arquivo veio, e estava velho.
+#
+# O endereco vigente, o que o shillerdata.com de fato linka, tem um segmento de
+# pasta a mais. O parametro ?ver= e cache-buster do CDN e muda a cada publicacao;
+# a URL sem ele serve o mesmo arquivo, entao ela vem primeiro e a versionada
+# fica como reserva.
+#
+# Manter o endereco antigo na lista tem um custo que precisa ser neutralizado:
+# se ele voltar a responder antes dos outros, o pipeline volta a 2024 sem avisar.
+# Por isso a escolha NAO e "o primeiro que responder", e sim "o que trouxer a
+# observacao mais recente" -- ver src/sources/shiller.py, escolher_espelho().
+SHILLER_XLS_URLS = (
     "https://img1.wsimg.com/blobby/go/e5e77e0b-59d1-44d9-ab25-4763ac982e53/"
-    "downloads/ie_data.xls"
+    "downloads/70fec4f5-727f-4e53-b5f1-179af109c5fa/ie_data.xls",
+    "https://img1.wsimg.com/blobby/go/e5e77e0b-59d1-44d9-ab25-4763ac982e53/"
+    "downloads/70fec4f5-727f-4e53-b5f1-179af109c5fa/ie_data.xls?ver=1788371540009",
+    "https://img1.wsimg.com/blobby/go/e5e77e0b-59d1-44d9-ab25-4763ac982e53/"
+    "downloads/ie_data.xls",
 )
+# Compatibilidade com quem importava o nome antigo.
+SHILLER_XLS = SHILLER_XLS_URLS[0]
 
 # B3 - composicao vigente do Ibovespa (endpoint do portal de indices).
 B3_INDEX_PORTFOLIO = (
