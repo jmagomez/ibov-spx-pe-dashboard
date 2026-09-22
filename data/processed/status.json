@@ -1,37 +1,37 @@
 {
-  "gerado_em_utc": "2026-09-19T15:17:44+00:00",
+  "gerado_em_utc": "2026-09-22T00:23:57+00:00",
   "estagios": [
     {
       "nome": "precos_spx",
       "ok": true,
-      "detalhe": "provedor: yfinance; horizonte: 16.7 anos (4203 pregoes)",
-      "obs": 4203,
+      "detalhe": "provedor: yfinance; horizonte: 16.7 anos (4204 pregoes)",
+      "obs": 4204,
       "inicio": "2010-01-04",
-      "fim": "2026-09-18"
+      "fim": "2026-09-21"
     },
     {
       "nome": "eps_spx",
       "ok": true,
-      "detalhe": "fonte: planilha Shiller (coluna E, LPA 12m mensal) -- S&P DJI indisponivel",
-      "obs": 3709,
+      "detalhe": "fonte: planilha Shiller (coluna E, LPA 12m mensal) -- S&P DJI indisponivel; espelho: ...3/downloads/70fec4f5-727f-4e53-b5f1-179af109c5fa/ie_data.xls; dado ate 2026-06-01",
+      "obs": 4204,
       "inicio": "",
       "fim": ""
     },
     {
       "nome": "cape_shiller",
       "ok": true,
-      "detalhe": "",
-      "obs": 177,
+      "detalhe": "espelho: ...3/downloads/70fec4f5-727f-4e53-b5f1-179af109c5fa/ie_data.xls",
+      "obs": 201,
       "inicio": "2010-01-01",
-      "fim": "2024-09-01"
+      "fim": "2026-09-01"
     },
     {
       "nome": "precos_ibov",
       "ok": true,
-      "detalhe": "provedor: yfinance; horizonte: 16.7 anos (4144 pregoes)",
-      "obs": 4144,
+      "detalhe": "provedor: yfinance; horizonte: 16.7 anos (4145 pregoes)",
+      "obs": 4145,
       "inicio": "2010-01-04",
-      "fim": "2026-09-18"
+      "fim": "2026-09-21"
     },
     {
       "nome": "composicao_ibov_b3",
@@ -69,31 +69,29 @@
       "nome": "pe_ibov",
       "ok": true,
       "detalhe": "cobertura da carteira 100.0%; 2261 linhas de lucro de 74 companhias; exigido >= 80% do PESO em cada data (coberto: min 85.4%, mediana 95.8%); indicador normalizado (base 100), NAO e P/E em nivel -- ver METODOLOGIA.md secao 4",
-      "obs": 3848,
+      "obs": 3849,
       "inicio": "",
       "fim": ""
     }
   ],
   "avisos": [
-    "eps_spx: a fonte parou em 2024-06-01 e a ultima observacao venceu ha 719 dias. O trecho final da serie fica VAZIO em vez de repetir o ultimo valor -- ver METODOLOGIA.md, secao de validade.",
-    "cape_shiller: a fonte parou em 2024-09-01 e a ultima observacao venceu ha 627 dias. O trecho final da serie fica VAZIO em vez de repetir o ultimo valor -- ver METODOLOGIA.md, secao de validade.",
     "5 CNPJ(s) apontam para mais de um codigo CVM e foram RECUSADOS em vez de desempatados por criterio arbitrario.",
     "Teto de validade aplicado retroativamente aos dados de 08/08/2026: o LPA estava repetido desde 03/06/2024 e inflava o P/E do trecho final. O trecho sem lastro foi esvaziado, nao corrigido por estimativa."
   ],
   "vigencias": [
     {
       "fonte": "eps_spx",
-      "ultima_observacao": "2024-06-01",
-      "vigente_ate": "2024-09-29",
-      "defasagem_dias": 839,
-      "vencida": true
+      "ultima_observacao": "2026-06-01",
+      "vigente_ate": "2026-09-29",
+      "defasagem_dias": 112,
+      "vencida": false
     },
     {
       "fonte": "cape_shiller",
-      "ultima_observacao": "2024-09-01",
-      "vigente_ate": "2024-12-30",
-      "defasagem_dias": 747,
-      "vencida": true
+      "ultima_observacao": "2026-09-01",
+      "vigente_ate": "2026-12-30",
+      "defasagem_dias": 20,
+      "vencida": false
     }
   ],
   "conciliacao": {
@@ -145,18 +143,18 @@
   "dfp_ausentes": [],
   "reparo_validade": {
     "eps_ttm": {
-      "ultima_mudanca": "2024-06-03",
-      "vigente_ate": "2024-10-01",
+      "ultima_mudanca": "2026-06-01",
+      "vigente_ate": "2026-09-29",
       "pregoes_removidos": 0
     },
     "eps_ttm_pit": {
-      "ultima_mudanca": "2024-08-15",
-      "vigente_ate": "2024-12-13",
+      "ultima_mudanca": "2026-08-17",
+      "vigente_ate": "2026-12-15",
       "pregoes_removidos": 0
     },
     "cape": {
-      "ultima_mudanca": "2024-09-03",
-      "vigente_ate": "2025-01-01",
+      "ultima_mudanca": "2026-09-01",
+      "vigente_ate": "2026-12-30",
       "pregoes_removidos": 0
     }
   }
