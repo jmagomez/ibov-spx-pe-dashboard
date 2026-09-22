@@ -1,15 +1,3 @@
-# ATENCAO: este arquivo e o novo .github/workflows/update.yml.
-#
-# Ele esta fora de .github/workflows/ por uma restricao mecanica: o token de app
-# que abriu este PR nao tem a permissao `workflows`, e a API do GitHub recusa
-# com 403 qualquer escrita dentro daquele diretorio. Para aplicar:
-#
-#     git mv .github/workflow-diario.yml.proposto .github/workflows/update.yml
-#
-# ou, pela web, copie o conteudo por cima de .github/workflows/update.yml e
-# apague este arquivo. Enquanto ele estiver aqui, o pipeline continua rodando
-# no agendamento antigo (so aos sabados) e sem enviar e-mail.
-
 name: Atualizacao diaria
 
 # 12:00 UTC = 09:00 BRT. O Brasil nao adota horario de verao desde 2019
