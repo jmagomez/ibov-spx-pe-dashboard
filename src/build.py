@@ -149,8 +149,11 @@ def build_spx(status: Status) -> pd.DataFrame:
             _registrar_vigencia(status, "eps_spx", eps_m, 0,
                                 MAX_STALE_DAYS_EPS_MENSAL, out.index)
             st.ok, st.obs = True, int(out["eps_ttm"].notna().sum())
+            espelho = str(eps_m.attrs.get("espelho", ""))[-60:]
             st.detalhe = ("fonte: planilha Shiller (coluna E, LPA 12m mensal) -- "
-                          "S&P DJI indisponivel")
+                          "S&P DJI indisponivel"
+                          + (f"; espelho: ...{espelho}" if espelho else "")
+                          + f"; dado ate {eps_m.index.max().date()}")
         except Exception as exc2:  # noqa: BLE001
             erros_eps.append(f"shiller: {str(exc2)[:150]}")
             st.detalhe = " | ".join(erros_eps)
@@ -174,6 +177,8 @@ def build_spx(status: Status) -> pd.DataFrame:
                             out.index)
         st.ok, st.obs = True, len(cape)
         st.inicio, st.fim = str(cape.index.min().date()), str(cape.index.max().date())
+        espelho = str(cape.attrs.get("espelho", ""))[-60:]
+        st.detalhe = f"espelho: ...{espelho}" if espelho else ""
     except Exception as exc:  # noqa: BLE001
         st.detalhe = str(exc)
         log.error("cape_shiller falhou: %s", exc)

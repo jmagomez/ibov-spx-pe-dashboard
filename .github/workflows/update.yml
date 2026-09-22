@@ -1,11 +1,17 @@
-name: Atualizacao semanal
+name: Atualizacao diaria
 
 # 12:00 UTC = 09:00 BRT. O Brasil nao adota horario de verao desde 2019
 # (Decreto 9.772/2019), entao o deslocamento UTC-3 e fixo o ano inteiro e o
 # cron nao precisa de ajuste sazonal.
+#
+# Terca a sabado, e nao "todo dia": cada execucao resume o fechamento do pregao
+# ANTERIOR. Terca cobre segunda, sabado cobre sexta. Rodar tambem na segunda
+# produziria um segundo e-mail sobre a mesma sexta-feira -- mesma referencia,
+# mesmos numeros, nenhuma informacao nova. Cinco e-mails por semana, um por
+# pregao.
 on:
   schedule:
-    - cron: "0 12 * * 6"
+    - cron: "0 12 * * 2-6"
   # Mudanca de CODIGO tambem executa o pipeline. O filtro de caminhos e o que
   # evita laco: o job so commita em data/processed e docs, que nao estao aqui.
   push:
@@ -25,6 +31,10 @@ on:
         description: "Rodar tools/diagnostico.py e imprimir o resultado"
         required: false
         default: "nao"
+      enviar_email:
+        description: "Enviar o resumo por e-mail nesta execucao manual (sim/nao)"
+        required: false
+        default: "nao"
 
 permissions:
   contents: write
@@ -36,7 +46,14 @@ concurrency:
 jobs:
   atualizar:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # 60 e nao 45: a coleta completa da CVM (DFP de 2010 em diante mais cinco
+    # anos de ITR) e o estagio longo, e agora ela roda todo dia util.
+    timeout-minutes: 60
+    # O contexto `secrets` NAO existe em `if:` de step -- so `env` existe. Sem
+    # esta ponte, a condicao do passo de e-mail seria sempre falsa e o envio
+    # nunca aconteceria, silenciosamente.
+    env:
+      MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -76,6 +93,14 @@ jobs:
       - name: Gerar dashboard
         run: python -m src.render
 
+      # O resumo le o que foi publicado e compara com digest_estado.json, que e
+      # versionado. E por isso que ele roda ANTES do commit: o estado que ele
+      # grava agora e o que a execucao de amanha vai usar como "ontem".
+      - name: Gerar resumo do dia
+        if: always()
+        run: python tools/digest.py
+        continue-on-error: true
+
       - name: Resumo da execucao
         if: always()
         run: python tools/summary.py
@@ -103,6 +128,53 @@ jobs:
             git commit -m "dados: atualizacao automatica $(date -u +%Y-%m-%d)"
             git push
           fi
+
+      # --- Envio do resumo -------------------------------------------------
+      # Duas condicoes, e as duas importam:
+      #
+      #   - a existencia do arquivo garante que nao se envie e-mail vazio
+      #     quando o digest nao chegou a ser gerado;
+      #   - env.MAIL_USERNAME != '' faz o passo ser PULADO, e nao falhar, em
+      #     quem clonar o repositorio sem configurar credencial. Um fork que
+      #     quebra no envio de e-mail seria um fork quebrado por um motivo que
+      #     nao tem nada a ver com o pipeline.
+      #
+      # Em execucao manual o envio e opt-in: testar o pipeline as 15h nao deve
+      # disparar e-mail de fechamento.
+      - name: Ler assunto do resumo
+        id: resumo
+        if: always()
+        run: |
+          if [ -f data/processed/digest_assunto.txt ]; then
+            echo "assunto=$(head -c 200 data/processed/digest_assunto.txt)" >> "$GITHUB_OUTPUT"
+            echo "existe=sim" >> "$GITHUB_OUTPUT"
+          else
+            echo "existe=nao" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Enviar resumo por e-mail
+        if: >-
+          always()
+          && steps.resumo.outputs.existe == 'sim'
+          && env.MAIL_USERNAME != ''
+          && (github.event_name != 'workflow_dispatch' || inputs.enviar_email == 'sim')
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.MAIL_USERNAME }}
+          # Senha de app do Gmail, nao a senha da conta. Mesmo par de secrets
+          # usado no repositorio resumo-focus.
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: ${{ steps.resumo.outputs.assunto }}
+          to: ${{ secrets.MAIL_TO || secrets.MAIL_USERNAME }}
+          from: Painel P/E Ibovespa x S&P 500 <${{ secrets.MAIL_USERNAME }}>
+          html_body: file://data/processed/digest.html
+          # Cliente que nao renderiza HTML ainda recebe o conteudo inteiro.
+          body: file://data/processed/digest.txt
+          convert_markdown: false
+        continue-on-error: true
 
       - name: Portao final
         if: always()

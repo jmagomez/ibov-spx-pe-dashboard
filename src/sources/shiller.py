@@ -20,11 +20,17 @@ import math
 
 import pandas as pd
 
-from ..config import (CAPE_MAX_PLAUSIVEL, CAPE_MIN_PLAUSIVEL, SHILLER_XLS,
+from ..config import (CAPE_MAX_PLAUSIVEL, CAPE_MIN_PLAUSIVEL, SHILLER_XLS_URLS,
                       START_DATE)
 from .http import SourceUnavailable, get
 
 log = logging.getLogger(__name__)
+
+# Se o primeiro espelho ja traz observacao com no maximo esta idade, os demais
+# nem chegam a ser baixados. Serie mensal com defasagem de publicacao: 150 dias
+# e folgado para o caso normal e apertado o bastante para flagrar um arquivo
+# parado ha anos.
+FRESCOR_ACEITAVEL_DIAS = 150
 
 
 def _shiller_date_to_ts(v):
@@ -44,9 +50,22 @@ def _shiller_date_to_ts(v):
     return pd.Timestamp(year=year, month=month, day=1)
 
 
-def _abrir_tabela() -> pd.DataFrame:
+_BYTES: dict[str, bytes] = {}
+
+
+def _baixar(url: str) -> bytes:
+    """GET memoizado por URL, valido dentro de uma execucao do processo.
+
+    A planilha nao muda no meio de um job, e ela e lida duas vezes (CAPE e LPA).
+    Sem isto, cada leitura repete o download de cada espelho.
+    """
+    if url not in _BYTES:
+        _BYTES[url] = get(url)
+    return _BYTES[url]
+
+
+def _parse_bruto(raw: bytes) -> pd.DataFrame:
     """Devolve a aba Data crua, com o bloco de cabecalho ja delimitado."""
-    raw = get(SHILLER_XLS)
     xls = pd.ExcelFile(io.BytesIO(raw))
     sheet = next((s for s in xls.sheet_names if s.strip().lower() == "data"),
                  xls.sheet_names[0])
@@ -72,6 +91,79 @@ def _abrir_tabela() -> pd.DataFrame:
             "(coluna 0 deveria trazer a data no formato AAAA.MM)")
     df.attrs["header_row"] = primeira_dado - 1
     df.attrs["header_inicio"] = 0
+    return df
+
+
+def _ultima_observacao(df: pd.DataFrame) -> pd.Timestamp:
+    """Data da ultima linha com lucro (coluna E) preenchido.
+
+    E este numero, e nao o status HTTP, que diz se o arquivo esta vivo. Um
+    espelho congelado devolve 200 e um XLS integro; o que o denuncia e a
+    ultima observacao parada anos atras.
+    """
+    h = df.attrs["header_row"]
+    cols = list(df.columns)
+    corpo = df.iloc[h + 1:]
+    datas = pd.DatetimeIndex(corpo[cols[0]].map(_shiller_date_to_ts))
+    lucro = pd.to_numeric(corpo[cols[3]], errors="coerce")
+    validas = datas[~datas.isna() & lucro.notna().values]
+    if len(validas) == 0:
+        raise SourceUnavailable("planilha Shiller sem nenhuma linha de lucro valida")
+    return validas.max()
+
+
+def escolher_espelho(candidatos: dict[str, pd.Timestamp]) -> str:
+    """Entre os espelhos que responderam, o que traz o dado mais recente.
+
+    Regra deliberada: nao e "o primeiro que responder". O endereco legado da
+    ie_data continua servindo 200 com um arquivo de 2024, e por dois anos foi
+    ele quem alimentou o dashboard -- silenciosamente, porque HTTP 200 e uma
+    planilha bem-formada nao disparam nenhum alarme. Empate resolve pela ordem
+    de preferencia declarada em config, que e a ordem de entrada do dict.
+    """
+    if not candidatos:
+        raise SourceUnavailable("nenhum espelho da planilha Shiller respondeu")
+    return max(candidatos.items(), key=lambda kv: (kv[1], -list(candidatos).index(kv[0])))[0]
+
+
+def _abrir_tabela() -> pd.DataFrame:
+    """Baixa a ie_data do espelho com o dado mais recente e devolve a aba crua.
+
+    Custo: no caso normal, um unico download. Os espelhos seguintes so sao
+    consultados se o primeiro vier velho ou quebrado.
+    """
+    hoje = pd.Timestamp.now(tz="UTC").tz_convert(None).normalize()
+    tabelas: dict[str, pd.DataFrame] = {}
+    idades: dict[str, pd.Timestamp] = {}
+    erros = []
+    for url in SHILLER_XLS_URLS:
+        try:
+            df = _parse_bruto(_baixar(url))
+            ultima = _ultima_observacao(df)
+        except Exception as exc:  # noqa: BLE001
+            erros.append(f"{url[-60:]} -> {type(exc).__name__}: {str(exc)[:120]}")
+            log.warning("espelho Shiller indisponivel (%s): %s", url[-60:], str(exc)[:160])
+            continue
+        tabelas[url], idades[url] = df, ultima
+        idade = int((hoje - ultima).days)
+        log.info("espelho Shiller %s: ultima observacao %s (%d dias)",
+                 url[-60:], ultima.date(), idade)
+        if idade <= FRESCOR_ACEITAVEL_DIAS:
+            break
+
+    if not tabelas:
+        raise SourceUnavailable(
+            "nenhum espelho da planilha Shiller respondeu: " + " || ".join(erros))
+
+    escolhido = escolher_espelho(idades)
+    df = tabelas[escolhido]
+    df.attrs["espelho"] = escolhido
+    df.attrs["ultima_observacao"] = idades[escolhido]
+    df.attrs["espelhos_recusados"] = [
+        f"{u[-60:]} (ate {d.date()})" for u, d in idades.items() if u != escolhido
+    ] + erros
+    log.info("Shiller: espelho escolhido %s, dado ate %s",
+             escolhido[-60:], idades[escolhido].date())
     return df
 
 
@@ -147,6 +239,10 @@ def fetch_tabela() -> pd.DataFrame:
     Layout historico da aba Data: coluna 0 = Date, 1 = P, 2 = D, 3 = E.
     A posicao e usada apenas para P/D/E; o CAPE e localizado pelo rotulo.
     Um teste de sanidade rejeita a leitura se as colunas nao forem numericas.
+
+    O download e memoizado (ver _baixar): fetch_cape() e fetch_eps_ttm() leem a
+    MESMA planilha, e ate aqui cada uma baixava a sua copia. Com tres espelhos
+    na lista isso viraria ate seis downloads por execucao do mesmo arquivo.
     """
     df = _abrir_tabela()
     h = df.attrs["header_row"]
@@ -180,6 +276,8 @@ def fetch_tabela() -> pd.DataFrame:
             "coluna de lucro da planilha Shiller nao parece numerica; layout mudou")
     out.attrs["cape_rotulo"] = cape_rotulo
     out.attrs["cape_erro"] = cape_erro
+    out.attrs["espelho"] = df.attrs.get("espelho", "")
+    out.attrs["espelhos_recusados"] = df.attrs.get("espelhos_recusados", [])
     log.info("Shiller: %d meses de %s a %s (lucro=%d, cape=%d via '%s')", len(out),
              out.index.min().date(), out.index.max().date(),
              int(out["lucro_ttm"].notna().sum()), int(out["cape"].notna().sum()),
@@ -193,12 +291,15 @@ def fetch_cape() -> pd.Series:
     s = t["cape"].dropna()
     if s.empty:
         raise SourceUnavailable(t.attrs.get("cape_erro") or "serie CAPE vazia")
+    s.attrs["espelho"] = t.attrs.get("espelho", "")
     return s
 
 
 def fetch_eps_ttm() -> pd.Series:
     """Serie mensal do LPA 12m do S&P 500 (coluna E). JA acumulada em 12 meses."""
-    s = fetch_tabela()["lucro_ttm"].dropna()
+    t = fetch_tabela()
+    s = t["lucro_ttm"].dropna()
     if s.empty:
         raise SourceUnavailable("serie de lucro da Shiller vazia")
+    s.attrs["espelho"] = t.attrs.get("espelho", "")
     return s
