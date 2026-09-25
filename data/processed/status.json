@@ -1,19 +1,19 @@
 {
-  "gerado_em_utc": "2026-09-24T16:26:47+00:00",
+  "gerado_em_utc": "2026-09-25T16:27:16+00:00",
   "estagios": [
     {
       "nome": "precos_spx",
       "ok": true,
-      "detalhe": "provedor: yfinance; horizonte: 16.7 anos (4206 pregoes)",
-      "obs": 4206,
+      "detalhe": "provedor: yfinance; horizonte: 16.7 anos (4208 pregoes)",
+      "obs": 4208,
       "inicio": "2010-01-04",
-      "fim": "2026-09-24"
+      "fim": "2026-09-25"
     },
     {
       "nome": "eps_spx",
       "ok": true,
       "detalhe": "fonte: planilha Shiller (coluna E, LPA 12m mensal) -- S&P DJI indisponivel; espelho: ...3/downloads/70fec4f5-727f-4e53-b5f1-179af109c5fa/ie_data.xls; dado ate 2026-06-01",
-      "obs": 4206,
+      "obs": 4208,
       "inicio": "",
       "fim": ""
     },
@@ -28,10 +28,10 @@
     {
       "nome": "precos_ibov",
       "ok": true,
-      "detalhe": "provedor: yfinance; horizonte: 16.7 anos (4147 pregoes)",
-      "obs": 4147,
+      "detalhe": "provedor: yfinance; horizonte: 16.7 anos (4149 pregoes)",
+      "obs": 4149,
       "inicio": "2010-01-04",
-      "fim": "2026-09-24"
+      "fim": "2026-09-25"
     },
     {
       "nome": "composicao_ibov_b3",
@@ -53,7 +53,7 @@
       "nome": "cadastro_b3",
       "ok": true,
       "detalhe": "ponte codigo de negociacao -> CNPJ",
-      "obs": 3516,
+      "obs": 3517,
       "inicio": "",
       "fim": ""
     },
@@ -69,7 +69,7 @@
       "nome": "pe_ibov",
       "ok": true,
       "detalhe": "cobertura da carteira 100.0%; 2261 linhas de lucro de 74 companhias; exigido >= 80% do PESO em cada data (coberto: min 85.5%, mediana 95.8%); indicador normalizado (base 100), NAO e P/E em nivel -- ver METODOLOGIA.md secao 4",
-      "obs": 3851,
+      "obs": 3853,
       "inicio": "",
       "fim": ""
     }
@@ -83,14 +83,14 @@
       "fonte": "eps_spx",
       "ultima_observacao": "2026-06-01",
       "vigente_ate": "2026-09-29",
-      "defasagem_dias": 115,
+      "defasagem_dias": 116,
       "vencida": false
     },
     {
       "fonte": "cape_shiller",
       "ultima_observacao": "2026-09-01",
       "vigente_ate": "2026-12-30",
-      "defasagem_dias": 23,
+      "defasagem_dias": 24,
       "vencida": false
     }
   ],
