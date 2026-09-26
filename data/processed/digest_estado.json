@@ -12,15 +12,12 @@
     "cadastro_b3": true,
     "conciliacao_ibov": true,
     "pe_ibov": true,
-    "pl_ibov_nivel": false
+    "pl_ibov_nivel": true
   },
   "vencidas": [],
   "faixa_spx": "intermediaria",
-  "faixa_ibov": "sem_dado",
+  "faixa_ibov": "intermediaria",
   "sinal_premio_cape": "negativo",
-  "series_vazias": [
-    "ibov_pl",
-    "ibov_pl_pct"
-  ],
-  "escrito_em_utc": "2026-09-26T23:51:35+00:00"
+  "series_vazias": [],
+  "escrito_em_utc": "2026-09-26T23:58:00+00:00"
 }
