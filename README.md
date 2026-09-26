@@ -45,12 +45,15 @@ Detalhamento completo em [`LIMITACOES.md`](LIMITACOES.md).
 
 | Métrica | Índice | Construção |
 |---|---|---|
-| P/E trailing 12m | S&P 500 | Preço ÷ LPA as-reported 12m (S&P DJI) |
+| P/E trailing 12m | S&P 500 | Preço ÷ LPA as-reported (GAAP) 12m — S&P DJI, ou Shiller quando a S&P DJI não responde |
 | P/E trailing point-in-time | S&P 500 | Idem, com defasagem de 75 dias de divulgação |
 | P/E operating | S&P 500 | Idem, com LPA operating |
 | CAPE (Shiller P/E) | S&P 500 | Planilha `ie_data` de Robert Shiller |
 | Earnings yield | S&P 500 | 1 ÷ (P/E), em % a.a. |
 | Z-score e percentil | ambos | Janela móvel de 10 anos contra a própria distribuição |
+| Percentil na história longa | S&P 500 | P/E e CAPE contra toda a planilha de Shiller (desde 1871) |
+| LPA 12m, variação a/a | S&P 500 | Sinaliza crescimento atípico do lucro (itens não recorrentes) |
+| Rendimento do lucro − juro real | S&P 500 | `earnings yield − TIPS 10a` e `1/CAPE − TIPS 10a`, em p.p. (FRED) |
 | Índice de valuation (base 100) | Ibovespa | Preço do índice ÷ lucro agregado das componentes, normalizado |
 | Carteira vigente | Ibovespa | Composição atual da B3, 30 maiores pesos |
 
@@ -95,6 +98,7 @@ src/
     shiller.py         CAPE e LPA 12m (Robert Shiller, Yale) — escolhe o espelho
                        com o dado mais recente, não o primeiro que responder
     b3.py              composição vigente do Ibovespa (B3)
+    juros.py           Treasury e TIPS de 10 anos (FRED)
     cvm.py             lucro consolidado das companhias (CVM — DFP e ITR)
 tools/
   summary.py           resumo da execução no Step Summary do Actions
@@ -104,6 +108,8 @@ tests/
   test_metrics.py      funções de cálculo
   test_espelho_shiller.py  escolha de espelho da ie_data — trava o defeito de 2024
   test_digest.py       o resumo diário não publica número vencido como se fosse do dia
+  test_ltm_trimestral.py  lucro de 12 meses do ITR com o 4T derivado da DFP
+  test_leitura.py      crescimento do lucro, história longa, juros
 docs/index.html        dashboard estático
 data/processed/        séries publicadas + status.json com o diagnóstico
 ```

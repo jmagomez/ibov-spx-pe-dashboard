@@ -40,10 +40,12 @@ Bloomberg). Todas pagas. É a fronteira do que este projeto entrega de graça.
 
 ## 3. Cobertura da conciliação — e o que o portão de 80% não resolve
 
-Não existe tabela de-para pública entre ticker da B3 e código CVM. A conciliação é feita por
-razão social normalizada, com correspondência por prefixo como segunda tentativa.
+A conciliação usa o cadastro de listadas da B3, que traz o código CVM e o CNPJ de cada
+emissor; razão social normalizada só entra como último recurso, quando o cadastro não
+responde. Em setembro de 2026, os 76 ativos da carteira casaram por código CVM, e a lista de
+pares fica gravada em `data/processed/ibov_conciliacao.csv`.
 
-Isso erra em dois sentidos:
+Quando o cadastro falha e a conciliação cai para razão social, ela erra em dois sentidos:
 
 - **Falso negativo:** a empresa está no índice, mas a grafia diverge e ela fica de fora do
   agregado. Reduz a cobertura, e o portão de 80% detecta.
@@ -52,7 +54,8 @@ Isso erra em dois sentidos:
 
 O segundo caso é o mais perigoso, porque se manifesta como um número plausível. A mitigação
 é parcial: prefixo mínimo de 12 caracteres e exigência de 8 caracteres na chave. A auditoria
-real exige inspecionar a lista de pares casados, que fica em `data/processed/`.
+real exige inspecionar a lista de pares casados, em `data/processed/ibov_conciliacao.csv`
+(coluna `via`).
 
 Um detalhe adicional: empresas com múltiplas classes de ação (ON e PN) aparecem duas vezes na
 carteira do índice e uma vez na CVM. O agregado de lucro conta a companhia uma vez — correto
@@ -82,18 +85,20 @@ com viés próprio, não uma série melhor.
 |---|---|
 | S&P DJI (`sp-500-eps-est.xlsx`) | Layout muda periodicamente. O parser busca por conteúdo, não por posição, mas uma mudança grande quebra. |
 | B3 (endpoint de carteira) | Endpoint interno do portal, sem contrato público de estabilidade. Pode mudar sem aviso. |
-| Stooq | Agregador de terceiros, não fonte oficial de índice. Pode ter ajustes e falhas pontuais. |
+| yfinance / Yahoo | Provedor de preço em uso desde 08/2026. Biblioteca de terceiros sobre endpoint não oficial; já respondeu 429 a IP de datacenter. |
+| Stooq | Agregador de terceiros, reserva do yfinance. Pode ter ajustes e falhas pontuais. |
+| FRED (juros) | Oficial e estável, mas é a única fonte dos prêmios sobre juro: se falhar, os dois gráficos de juros ficam vazios. |
 | CVM | Portal estável, mas o ITR só mantém cinco anos e a estrutura de contas mudou ao longo do tempo. |
 | Shiller (`ie_data.xls`) | Hospedado em blob de terceiros; a URL já mudou historicamente. |
 
-Nenhuma dessas fontes tem SLA. Todas podem falhar em qualquer sábado. O projeto trata isso
+Nenhuma dessas fontes tem SLA. Todas podem falhar em qualquer dia útil. O projeto trata isso
 mostrando a falha em vez de mascará-la — mas o usuário precisa olhar o painel de diagnóstico,
 não só o gráfico.
 
-Ponto específico sobre o Stooq: para o S&P 500 seria mais rigoroso usar o nível oficial do
+Ponto específico sobre o preço: para o S&P 500 seria mais rigoroso usar o nível oficial do
 índice da própria S&P DJI, para casar numerador e denominador na mesma fonte. Não há endpoint
-gratuito estável para isso. A diferença entre o fechamento do Stooq e o oficial deve ser
-desprezível, mas é uma inconsistência de fonte não verificada.
+gratuito estável para isso. Conferido em 25/09/2026, o fechamento usado (7.743,4) bate com o
+publicado pela imprensa financeira na casa das unidades, mas a conferência não é automática.
 
 ## 6. As estatísticas de posição são ancoradas em um período peculiar
 
@@ -103,6 +108,12 @@ aperto monetário. Não é um "período normal" contra o qual medir normalidade.
 
 Com uma série que começa em 2010 e janela de 10 anos, o percentil só existe a partir de
 ~2015 — e os primeiros anos da estatística são calculados sobre janela incompleta.
+
+Desde 26/09/2026 o dashboard mostra, ao lado, o percentil contra **toda** a planilha de Shiller
+(P/E e CAPE desde 1871). A diferença entre as duas leituras é o ponto: com o P/E em 26x, o
+percentil de 10 anos marcava 68 — leitura que sugere nível moderado — porque a década de
+referência foi, ela própria, das mais caras já registradas. Ver a tabela "Posição na história
+longa" no painel.
 
 ## 7. Lucro agregado negativo
 
@@ -119,6 +130,59 @@ backtest construído sobre a série `pe` (convenção de índice) tem look-ahead
 qualquer uso que envolva decisão simulada no tempo, a série correta é `pe_pit`.
 
 ---
+
+## 9. Lucro contábil (GAAP) inclui o que não se repete — e em 2026 isso reduziu o P/E
+
+O LPA do S&P 500 usado aqui é o *as reported*: lucro líquido GAAP. Ele inclui baixas contábeis,
+reestruturações e, desde a ASU 2016-01 (2018), a **marcação a mercado de participações em
+ações** — inclusive de empresas fechadas, a cada nova rodada de captação delas.
+
+Em 2025-26 esse último item deixou de ser detalhe. No 2º trimestre de 2026 a FactSet registrou
+crescimento de lucro de 50,4% a/a para o índice, com dois ganhos não operacionais puxando o
+número: US$ 98 bi da Alphabet em títulos patrimoniais e US$ 53,4 bi da Amazon na participação
+na Anthropic. Sem essas duas companhias, a surpresa de lucro da temporada cairia de 29,2% para
+10,9% (FactSet, *Earnings Insight*, 07/08/2026).
+
+No dado deste painel: o LPA 12m da planilha de Shiller subiu **32,7% a/a** até jun/2026
+(de 222,5 para 295,4). Ordem de grandeza do efeito, **estimada** e só para os dois ganhos acima,
+só no 2T26: cerca de US$ 14 por ação do índice (alíquota de ~23% e divisor do índice de ~8,4 bi
+como premissas). Tirados esses US$ 14, o P/E de 26,2x de 25/09/2026 iria para ~27,5x. É um piso
+do efeito, não o efeito inteiro: trimestres anteriores também tiveram ganhos dessa natureza.
+
+A consequência para quem lê: **o P/E *trailing* GAAP deste painel está, neste momento,
+*abaixo* do P/E sobre lucro recorrente**, e não acima. O cartão "LPA 12m, variação a/a" passou
+a sinalizar variação acima de ±20% justamente para isso aparecer sem precisar abrir o CSV.
+
+Três números diferentes circulam como "P/E do S&P 500", e não são contraditórios:
+
+| Medida | Setembro/2026 | O que muda |
+|---|---|---|
+| P/E projetado 12m (FactSet) | ~20x | Lucro *esperado*, com crescimento de ~25-30% embutido |
+| P/E *trailing* GAAP (este painel) | ~26x | Lucro *realizado*, com ganhos não recorrentes |
+| P/E *trailing* ex-ganhos de IA (estimativa acima) | ~27,5x | Lucro realizado, sem os dois maiores ganhos do 2T26 |
+
+A S&P DJI publica também o LPA *operating*, que exclui parte desses itens. O coletor dela
+existe (`src/sources/spdji.py`), mas o arquivo responde 403 ao runner do GitHub desde a
+execução #4 — ver `ESTADO.md`.
+
+## 10. O agregado de lucro do Ibovespa: o que a soma ainda não trata
+
+A série do Ibovespa soma o lucro líquido **consolidado** (conta 3.11 da CVM) das companhias da
+carteira vigente. Três vieses conhecidos, nenhum corrigido:
+
+- **Participação de não controladores.** A 3.11 inclui a parcela do lucro que pertence aos
+  minoritários das controladas. O correto, para comparar com o preço da ação da controladora,
+  seria a 3.11.01 (atribuível aos sócios da controladora). A troca de conta exige validar o
+  plano de contas de bancos e seguradoras contra os arquivos originais, o que ainda não foi
+  feito.
+- **Dupla contagem entre holding e controlada.** Quando as duas estão no índice (Itaúsa e Itaú;
+  Cosan e Rumo; Banco do Brasil e BB Seguridade), parte do mesmo lucro entra duas vezes. Como a
+  série é normalizada, um viés estável se cancela; um que muda ao longo do tempo, não.
+- **Lucro total, não por ação.** Emissões e recompras mudam o lucro total sem mudar o lucro por
+  ação — e o índice, do outro lado da razão, é por ação.
+
+Corrigido em 26/09/2026 (ver `ESTADO.md`): o lucro de 12 meses do trecho trimestral deixava o
+4º trimestre de fora, e lucro exatamente zero (DRE consolidada vazia) entrava como zero.
 
 ## O que estas séries não permitem concluir
 

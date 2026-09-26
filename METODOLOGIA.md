@@ -18,10 +18,15 @@ descreve o índice. Todos os provedores relevantes usam a forma agregada acima.
 
 **Numerador.** Fechamento diário do índice.
 
-**Denominador.** LPA do índice acumulado em 12 meses, obtido da planilha *S&P 500 Earnings
-and Estimate Report*, publicada pela S&P Dow Jones Indices — a própria administradora do
-índice. Usa-se a soma móvel de quatro trimestres consecutivos. **Trimestre faltante não é
-preenchido**: a janela exige as quatro observações, e o resultado é `NaN` caso contrário.
+**Denominador.** LPA do índice acumulado em 12 meses. A fonte primária é a planilha *S&P 500
+Earnings and Estimate Report*, publicada pela S&P Dow Jones Indices — a própria administradora
+do índice —, com soma móvel de quatro trimestres **consecutivos do calendário**. **Trimestre
+faltante não é preenchido**: a janela exige as quatro observações, e o resultado é `NaN` caso
+contrário.
+
+Desde 08/2026 a S&P DJI responde 403 ao runner, e o LPA vem da coluna E da planilha de
+Shiller: mesma linhagem (S&P, *as reported*), mensal, já acumulada em 12 meses — entra direto,
+sem nova soma móvel. O painel de diagnóstico diz, a cada execução, qual das duas foi usada.
 
 **As-reported como série principal.** A planilha traz LPA *as reported* (GAAP) e *operating*.
 A série principal é a as-reported, porque o LPA operating exclui itens a critério das
@@ -51,8 +56,12 @@ O pipeline gera as duas versões:
 | `pe` | 0 dia | Convenção de índice. Comparável ao P/E divulgado pelo mercado. |
 | `pe_pit` | 75 dias | Point-in-time. O lucro só entra depois de plausivelmente divulgado. |
 
-75 dias cobrem com folga o prazo regulatório brasileiro de ITR (45 dias) e o ciclo típico de
-reporte nos EUA. A distância entre as duas linhas mede exatamente **quanta informação futura
+75 dias cobrem com folga o prazo do ITR (45 dias) e o ciclo típico de reporte trimestral nos
+EUA. **Não** cobrem o prazo da DFP, que é de três meses após o fim do exercício — até
+26/09/2026 a documentação dizia o contrário. Na série do Ibovespa, observações de dezembro
+(exercício anual e 4T derivado) usam 92 dias: 31/12 + 92 = 02/04, depois do prazo de 31/03.
+
+A distância entre as duas linhas mede exatamente **quanta informação futura
 a convenção de índice antecipa** — e ela é maior justamente nas viradas de ciclo, que é
 quando a leitura do múltiplo mais importa. Qualquer backtest construído sobre a série de
 convenção de índice tem viés de antecipação (*look-ahead bias*).
@@ -69,9 +78,12 @@ Nenhuma das duas métricas é suficiente sozinha.
 
 **Earnings yield** = 1 ÷ (P/E), em % a.a. É a forma comparável a taxa de juros. "P/E de 22"
 não responde a "caro em relação a quê"; "earnings yield de 4,5% contra um título de 10 anos
-a X%" responde. O dashboard publica o earnings yield, mas **não** calcula prêmio de risco:
-isso exigiria uma série de juro real de cada mercado que não está nas fontes deste projeto,
-e estimá-la seria inventar número.
+a X%" responde. Até 09/2026 este documento dizia que o prêmio sobre o juro não era calculado
+por falta de série de juro real. Para os EUA a série existe e é observada, não estimada: o
+rendimento do TIPS de 10 anos (FRED, DFII10). O painel passou a publicar
+`earnings_yield − TIPS` e `1/CAPE − TIPS` (seção 6). Para o Brasil o equivalente seria a NTN-B,
+mas o indicador do Ibovespa não é P/E em nível, e o prêmio não seria calculável de qualquer
+forma.
 
 ## 4. Ibovespa — índice de valuation, e por que não é P/E
 
@@ -96,20 +108,33 @@ Daí a rotulagem "índice de valuation (base 100)" em vez de "P/E". A diferença
 não é preciosismo: um número rotulado como P/E é comparado, por reflexo, com o P/E do S&P 500,
 e essa comparação seria inválida.
 
-**Emenda anual/trimestral.** O trecho anterior à cobertura do ITR usa lucro anual em degrau;
-o trecho recente usa soma móvel de quatro trimestres. Cada observação carrega a marca da
-frequência de origem (`freq_lucro`). O trecho anual tem resolução muito menor e reage às
-viradas de ciclo com atraso de até um ano.
+**Lucro de 12 meses por companhia.** Cada companhia entra com o lucro de 12 meses mais
+recente que ela de fato tem:
 
-**Defasagem.** A série do Ibovespa usa exclusivamente a convenção point-in-time (75 dias).
+- **LTM trimestral**, onde há quatro trimestres consecutivos. O ITR traz 1T, 2T e 3T; o 4T é
+  derivado como `exercício anual (DFP) − (1T + 2T + 3T)`, só quando as quatro peças existem e o
+  exercício fecha em dezembro. Trimestre ausente não é estimado: a janela que dependeria dele
+  fica vazia.
+- **Exercício anual da DFP**, onde não há LTM válido (antes do fim de 2021, que é quando o ITR de cinco
+  anos começa a formar janelas completas, e em companhias com buraco no ITR ou exercício fora de
+  dezembro).
+
+Nas datas de dezembro as duas coincidem por construção — é a identidade que os testes usam como
+prova. A coluna `peso_trimestral_pct` diz quanto do peso coberto vem de LTM trimestral em cada
+data; `freq_lucro` marca "trimestral" quando essa fração passa de 50%. Lucro exatamente zero é
+tratado como dado ausente (DRE consolidada vazia), não como lucro zero.
+
+**Defasagem.** A série do Ibovespa usa exclusivamente a convenção point-in-time: 75 dias para
+trimestres do ITR e 92 dias para observações de dezembro (exercício anual e 4T derivado).
 Não faria sentido oferecer a convenção de índice para uma construção que já é aproximada.
 
 ## 5. Portão de cobertura
 
-A conciliação entre a carteira da B3 e as companhias da CVM é feita por razão social
-normalizada — sem acento, sem sufixo societário, com correspondência por prefixo como
-segunda tentativa. É um casamento imperfeito por natureza: não existe, em fonte aberta,
-tabela de-para entre ticker da B3 e código CVM.
+A conciliação entre a carteira da B3 e as companhias da CVM usa o cadastro de listadas da
+B3, que traz código CVM e CNPJ de cada emissor. Razão social normalizada — sem acento, sem
+sufixo societário, com correspondência por prefixo — só entra como último recurso, quando o
+cadastro não responde. Os pares casados, com a via de cada um, ficam em
+`data/processed/ibov_conciliacao.csv`.
 
 Por isso o pipeline mede a **cobertura por peso**: a soma da participação no índice dos
 ativos efetivamente conciliados. Se ficar abaixo de **80%**, a série do Ibovespa é
@@ -130,6 +155,17 @@ Limitação incontornável: a janela de 10 anos sobre uma série que começa em 
 que o percentil só passa a existir por volta de 2015, e que ele é medido contra um período
 histórico específico — juros baixos, expansão de múltiplos, uma pandemia. Um percentil de
 90 não significa "caro em termos absolutos"; significa "alto em relação a estes 10 anos".
+
+**História longa.** Para o S&P 500, o painel calcula também o percentil do P/E e do CAPE de hoje
+contra toda a série mensal da planilha de Shiller (P/E desde 1871, com preço médio do mês e LPA
+12m; CAPE desde 1881). É a leitura que responde "caro em termos absolutos", com a ressalva de
+comparabilidade descrita em `LIMITACOES.md`, seções 6 e 9.
+
+**Juros.** Treasury (DGS10) e TIPS (DFII10) de 10 anos, do FRED, diários. O painel publica
+`earnings_yield − TIPS` e `1/CAPE − TIPS`, em pontos percentuais. O comparável ao rendimento do
+lucro é o juro **real**, porque o lucro de uma empresa cresce com a inflação. `1/CAPE − TIPS` é a
+construção do *excess CAPE yield* de Shiller, com juro real de mercado no lugar do juro real que
+ele estima a partir da inflação passada — por isso os dois números não coincidem exatamente.
 
 ## 7. Decomposição preço = múltiplo × lucro
 

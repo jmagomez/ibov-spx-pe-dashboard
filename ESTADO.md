@@ -1,7 +1,55 @@
 # Estado de validacao
 
 Registro honesto do que ja foi exercitado contra a realidade e do que ainda nao.
-Atualizado em 20/09/2026.
+Atualizado em 26/09/2026.
+
+## Auditoria de 26/09/2026: o lucro do Ibovespa deixava o 4T de fora
+
+Revisão feita a partir da pergunta "estes números são mesmo tão altos?". Para o S&P 500 a
+resposta foi que os insumos estão certos (preço, LPA e CAPE conferem com fontes independentes)
+e que o que faltava era contexto de leitura — ver `LIMITACOES.md`, seção 9. Para o Ibovespa, a
+revisão achou erro de cálculo.
+
+**O erro.** O LPA de 12 meses do trecho trimestral era `rolling(4)` sobre as linhas do ITR. O
+ITR não tem 4T. Em 30/06/2026 a soma juntava 2T25 + 3T25 + 1T26 + 2T26: pulava o 4T25 e trazia
+de volta um trimestre de 15 meses atrás. Eram quatro trimestres, o nível parecia plausível, e
+por isso passou.
+
+**O tamanho.** Sobre todas as companhias da CVM com os dois cálculos disponíveis, o lucro
+agregado saía 14,2% acima do correto em 30/06/2026, 15,6% em 31/03/2026 e 30,4% em 30/09/2025.
+A Vale sozinha respondia por R$ 35 bi em 30/06/2026 (LTM de R$ 44,1 bi no cálculo antigo contra
+R$ 8,7 bi no correto), porque o prejuízo de R$ 23,2 bi do 4T25 não entrava na conta.
+
+**A direção não é constante**, e isso importa: o erro foi de −6,5% em jun/2024, +10,7% em
+jun/2025, +30,4% em set/2025 e +14,2% em jun/2026. O sinal depende de o trimestre ressuscitado
+ser maior ou menor que o 4T que ficava de fora. No trecho de 2025-26, com lucro superestimado, a
+razão preço/lucro saía **menor**: o índice de valuation do Ibovespa aparecia **mais barato** do
+que era. Além de enviesar o nível, o erro somava ruído à série — o que contamina também o
+percentil e o z-score.
+
+**Dois problemas vizinhos, achados no mesmo lugar:**
+
+- Companhia com buraco no ITR saía do agregado trimestral inteira, e o lucro anual dela não
+  entrava no lugar (caso da TIM S.A., sem os três trimestres de 2025 no dado). Agora a escolha
+  de frequência é por companhia (`metrics.soma_mista`).
+- 45 linhas de lucro exatamente zero — DRE consolidada vazia — entravam como zero *e contavam
+  como cobertura*. Quatro das companhias afetadas estão na carteira atual do índice: BB
+  Seguridade, TIM, Lojas Renner e Auren. Agora são dado ausente.
+
+**Uma fragilidade que não tinha causado erro, mas podia:** no ITR, a DRE traz para a mesma
+data de fim a linha do trimestre e a do acumulado no ano. A escolha entre elas era o desempate
+de uma ordenação não estável. No dado real caiu sempre no trimestre (mediana de
+`(1T+2T+3T)/anual` = 0,74; acumulado daria ~1,5) — por acaso de ordem, não por regra. Agora a
+extração fica com a linha de duração de até um trimestre (`DT_INI_EXERC`).
+
+**Uma promessa da documentação que o código não cumpria:** a defasagem point-in-time de 75
+dias era descrita como suficiente para a DFP "com folga". O prazo da DFP é de três meses
+(31/03), e 31/12 + 75 = 16/03. Na série do Ibovespa, observações de dezembro passam a usar 92
+dias; as de ITR seguem com 75.
+
+**O que ficou gravado para auditoria futura:** a conciliação ticker → código CVM passa a ser
+salva em `data/processed/ibov_conciliacao.csv`. Sem ela não era possível reproduzir o agregado
+fora do runner.
 
 ## O defeito mais caro ate agora: HTTP 200 com arquivo de 2024
 
@@ -41,7 +89,7 @@ da ultima observacao dentro do arquivo.
 
 | Componente | Evidencia |
 |---|---|
-| Testes de calculo | 88 testes passam no runner (`pytest tests -q`) |
+| Testes de calculo | 116 testes passam no runner (`pytest tests -q`) |
 | Orquestracao e diagnostico | `status.json` gerado, com estagio, situacao e detalhe por fonte |
 | Renderizacao do dashboard | `docs/index.html` produzido mesmo com todas as fontes falhando |
 | Degradacao explicita | Graficos vazios com a causa escrita; nenhum numero inventado |
