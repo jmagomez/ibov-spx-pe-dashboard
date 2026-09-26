@@ -91,8 +91,14 @@ CVM_ITR_BASE = "https://dados.cvm.gov.br/dados/CIA_ABERTA/DOC/ITR/DADOS/"
 #   0  = convencao de indice (S&P DJI/Bloomberg): o trimestre entra na serie
 #        datado do proprio fim de trimestre. Comparavel a dados de mercado,
 #        mas NAO e point-in-time: no dia 30/06 ninguem conhecia o lucro do 2T.
-#   >0 = modo point-in-time. 75 dias cobre o prazo regulatorio brasileiro de
-#        ITR (45 dias) e DFP (3 meses) com folga, e o ciclo de reporte dos EUA.
+#   >0 = modo point-in-time. 75 dias cobrem o prazo do ITR (45 dias) com folga
+#        e o ciclo trimestral de reporte dos EUA.
+#
+# CORRECAO de 26/09/2026: este comentario dizia que 75 dias cobriam tambem o
+# prazo da DFP "com folga". Nao cobrem: a DFP tem prazo de TRES meses apos o fim
+# do exercicio (31/03 para quem fecha em dezembro), e 31/12 + 75 dias = 16/03.
+# Para o Ibovespa, observacoes de dezembro (exercicio anual e 4T derivado)
+# passam a usar REPORTING_LAG_DAYS_PIT_DEZEMBRO.
 #
 # O pipeline gera as DUAS series. A convencao de indice e a exibida por padrao
 # no dashboard, por ser a comparavel ao que o mercado publica; a point-in-time
@@ -100,6 +106,9 @@ CVM_ITR_BASE = "https://dados.cvm.gov.br/dados/CIA_ABERTA/DOC/ITR/DADOS/"
 # das analises criticas.
 REPORTING_LAG_DAYS_INDEX = 0
 REPORTING_LAG_DAYS_PIT = 75
+# 31/12 + 92 dias = 02/04: cobre o prazo de 31/03 da DFP. So o Ibovespa usa;
+# o LPA do S&P vem mensal, ja com o ciclo de reporte americano embutido.
+REPORTING_LAG_DAYS_PIT_DEZEMBRO = 92
 
 # Numero minimo de trimestres necessarios para formar um LPA 12m.
 TTM_QUARTERS = 4
