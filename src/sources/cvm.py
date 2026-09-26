@@ -205,42 +205,51 @@ def _extract_acoes(cap: pd.DataFrame) -> pd.DataFrame:
     return out.dropna(subset=["data_ref"])
 
 
-def _ano(bases: tuple, arquivo: str, freq: str) -> pd.DataFrame:
+def _ano(bases: tuple, arquivo: str, freq: str) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """(lucros, acoes) de um zip. O numero de acoes vem no mesmo arquivo.
+
+    As acoes voltam como segundo elemento, e NAO em df.attrs: um DataFrame
+    dentro de attrs quebra o pd.concat seguinte (o pandas compara os attrs dos
+    pedacos com ==, e comparar DataFrames com == nao devolve um booleano).
+    """
     conteudo, _ = _baixar(bases, arquivo)
     df = _extract_profit(_read_zip_csv(conteudo, "dre_con"), freq=freq)
     try:
-        df.attrs["acoes"] = _extract_acoes(_read_zip_csv(conteudo, "composicao_capital"))
+        acoes = _extract_acoes(_read_zip_csv(conteudo, "composicao_capital"))
     except Exception as exc:  # noqa: BLE001
         log.warning("composicao do capital indisponivel em %s: %s", arquivo, str(exc)[:160])
-    return df
+        acoes = pd.DataFrame(columns=COLUNAS_ACOES)
+    return df, acoes
 
 
 def fetch_dfp_year(year: int) -> pd.DataFrame:
-    """Lucro anual consolidado de todas as companhias, para um exercicio.
-
-    O numero de acoes (composicao do capital) vem no mesmo zip e sai em
-    df.attrs["acoes"].
-    """
-    return _ano(CVM_DFP_BASES, f"dfp_cia_aberta_{year}.zip", "A")
+    """Lucro anual consolidado de todas as companhias, para um exercicio."""
+    return _ano(CVM_DFP_BASES, f"dfp_cia_aberta_{year}.zip", "A")[0]
 
 
 def fetch_itr_year(year: int) -> pd.DataFrame:
     """Lucro trimestral consolidado de todas as companhias, para um ano."""
-    return _ano(CVM_ITR_BASES, f"itr_cia_aberta_{year}.zip", "T")
+    return _ano(CVM_ITR_BASES, f"itr_cia_aberta_{year}.zip", "T")[0]
 
 
-def fetch_range(years: Iterable[int], kind: str) -> pd.DataFrame:
+def fetch_range(years: Iterable[int], kind: str,
+                acoes_out: list | None = None) -> pd.DataFrame:
     """Coleta varios anos, tolerando anos individualmente indisponiveis.
 
     Um ano que falha e registrado e omitido -- nunca substituido por estimativa.
     Se TODOS falharem, levanta excecao: uma serie vazia silenciosa seria pior
-    que um erro.
+    que um erro. Com `acoes_out`, o numero de acoes de cada ano e acrescentado
+    a essa lista.
     """
-    fn = fetch_dfp_year if kind == "DFP" else fetch_itr_year
+    bases, prefixo, freq = ((CVM_DFP_BASES, "dfp", "A") if kind == "DFP"
+                            else (CVM_ITR_BASES, "itr", "T"))
     frames, falhas, ausentes = [], [], []
     for y in years:
         try:
-            frames.append(fn(y))
+            df_ano, acoes_ano = _ano(bases, f"{prefixo}_cia_aberta_{y}.zip", freq)
+            frames.append(df_ano)
+            if acoes_out is not None and not acoes_ano.empty:
+                acoes_out.append(acoes_ano)
             log.info("CVM %s %d: ok", kind, y)
         except Exception as exc:  # noqa: BLE001
             # 404 e informacao, nao avaria: o exercicio simplesmente nao foi
@@ -257,14 +266,9 @@ def fetch_range(years: Iterable[int], kind: str) -> pd.DataFrame:
         raise SourceUnavailable(
             f"nenhum ano de {kind} obtido. nao publicados: {ausentes}; "
             f"erros: {' | '.join(falhas[:3])}")
-    acoes = [f.attrs["acoes"] for f in frames if isinstance(f.attrs.get("acoes"), pd.DataFrame)]
-    for f in frames:
-        f.attrs = {}
     df = pd.concat(frames, ignore_index=True)
     df.attrs["anos_falhos"] = falhas
     df.attrs["anos_ausentes"] = ausentes
-    df.attrs["acoes"] = (pd.concat(acoes, ignore_index=True) if acoes
-                         else pd.DataFrame(columns=COLUNAS_ACOES))
     return df
 
 
