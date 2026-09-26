@@ -23,14 +23,14 @@ from datetime import datetime, timezone
 import numpy as np
 import pandas as pd
 
-from . import metrics, reconcile
+from . import ibov_nivel, metrics, reconcile
 from .config import (MAX_STALE_DAYS_CAPE, MAX_STALE_DAYS_EPS_MENSAL,
                      MAX_STALE_DAYS_EPS_TRIMESTRAL, MAX_STALE_DAYS_JUROS,
                      MAX_STALE_DAYS_LUCRO_ANUAL,
                      MAX_STALE_DAYS_LUCRO_TRIMESTRAL, PROCESSED,
                      REPORTING_LAG_DAYS_INDEX, REPORTING_LAG_DAYS_PIT,
                      REPORTING_LAG_DAYS_PIT_DEZEMBRO, STAT_WINDOW)
-from .sources import b3, cvm, juros, prices, shiller, spdji
+from .sources import ativos, b3, cvm, juros, prices, shiller, spdji
 
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s %(levelname)-7s %(name)s :: %(message)s")
@@ -62,6 +62,7 @@ class Status:
     conciliacao: dict = field(default_factory=dict)
     dfp_ausentes: list = field(default_factory=list)
     historico_longo: dict = field(default_factory=dict)
+    pl_ibov: dict = field(default_factory=dict)
 
     def add(self, s: Stage) -> None:
         self.estagios.append(asdict(s))
@@ -231,9 +232,10 @@ def _juros(status: Status, out: pd.DataFrame) -> None:
         s10 = series["tips10"]
         st.ok, st.obs = True, int(len(s10))
         st.inicio, st.fim = str(s10.index.min().date()), str(s10.index.max().date())
-        st.detalhe = ("FRED DGS10 (nominal) e DFII10 (real, TIPS); "
+        fontes = sorted({str(x.attrs.get("fonte", "?")) for x in series.values()})
+        st.detalhe = (f"Treasury 10a (nominal) e TIPS 10a (real) -- fonte: {' e '.join(fontes)}; "
                       f"ultimo: UST {series['ust10'].iloc[-1]:.2f}% | "
-                      f"TIPS {s10.iloc[-1]:.2f}%")
+                      f"TIPS {s10.iloc[-1]:.2f}% em {s10.index[-1].date()}")
     except Exception as exc:  # noqa: BLE001
         st.detalhe = str(exc)[:400]
         log.error("juros_fred falhou: %s", str(exc)[:300])
@@ -328,15 +330,19 @@ def build_ibov(status: Status):
     ano = datetime.now(timezone.utc).year
     st = Stage("lucros_cvm")
     lucros = pd.DataFrame()
+    acoes = pd.DataFrame()
     try:
         # ate ano+1: o exercicio corrente pode ja ter arquivo no portal, e
         # exclui-lo por convencao descartaria dado que existe.
-        dfp = cvm.fetch_range(range(2010, ano + 1), "DFP")
+        lista_acoes: list = []
+        dfp = cvm.fetch_range(range(2010, ano + 1), "DFP", acoes_out=lista_acoes)
         try:
-            itr = cvm.fetch_range(range(ano - 5, ano + 1), "ITR")
+            itr = cvm.fetch_range(range(ano - 5, ano + 1), "ITR", acoes_out=lista_acoes)
         except Exception as exc:  # noqa: BLE001
             itr = pd.DataFrame()
             status.avisos.append(f"ITR indisponivel; serie do IBOV fica so anual. {exc}")
+        acoes = pd.concat(lista_acoes, ignore_index=True) if lista_acoes else pd.DataFrame()
+        cvm.salvar_acoes(acoes)
         lucros = pd.concat([dfp, itr], ignore_index=True) if not itr.empty else dfp
         st.ok, st.obs = True, len(lucros)
         ausentes = list(dfp.attrs.get("anos_ausentes", []))
@@ -368,6 +374,7 @@ def build_ibov(status: Status):
         cache, meta = cvm.carregar_cache()
         if not cache.empty:
             lucros = cache
+            acoes = cvm.carregar_acoes()
             st.ok, st.obs = True, len(cache)
             idade = meta.get("idade_dias", "?")
             st.detalhe = (f"CACHE de {meta.get('coletado_em_utc', '?')} ({idade} dias); "
@@ -527,7 +534,98 @@ def build_ibov(status: Status):
         st.detalhe = str(exc)
         log.error("pe_ibov falhou: %s", exc)
     status.add(st)
+
+    _pl_nivel(status, out, comp, casadas, lucros, acoes)
     return out, comp
+
+
+def _pl_nivel(status: Status, out: pd.DataFrame, comp: pd.DataFrame,
+              casadas: pd.DataFrame, lucros: pd.DataFrame, acoes: pd.DataFrame) -> None:
+    """P/L do Ibovespa em nivel, com a carteira vigente. Ver src/ibov_nivel.py."""
+    st = Stage("pl_ibov_nivel")
+    try:
+        if acoes is None or acoes.empty:
+            raise RuntimeError("sem numero de acoes da CVM (composicao do capital)")
+        cas = casadas.copy()
+        cas["cd_cvm"] = cas["cd_cvm"].map(reconcile.normalizar_cd_cvm)
+        cas = cas.merge(comp[["codigo", "qtd_teorica"]], on="codigo", how="left")
+        lu = lucros.copy()
+        lu["cd_cvm"] = lu["cd_cvm"].map(reconcile.normalizar_cd_cvm)
+        lu = lu[lu["cd_cvm"].isin(set(cas["cd_cvm"]))]
+        lu["cnpj"] = lu["cnpj"].fillna("").astype(str).replace("nan", "")
+        cnpj_por_cd = (lu[lu["cnpj"].str.len() > 0]
+                       .sort_values("data_fim").groupby("cd_cvm")["cnpj"].last().to_dict())
+        carteira = ibov_nivel.montar_carteira(cas, acoes, cnpj_por_cd)
+
+        lucro_emp = metrics.lucro_diario_por_empresa(
+            lu, out.index, REPORTING_LAG_DAYS_PIT, MAX_STALE_DAYS_LUCRO_ANUAL,
+            MAX_STALE_DAYS_LUCRO_TRIMESTRAL, lag_dezembro=REPORTING_LAG_DAYS_PIT_DEZEMBRO,
+            coluna="lucro_ctrl")
+
+        # Hoje, com o numerador da propria B3 (indice x redutor).
+        res = {}
+        redutor = comp.attrs.get("redutor")
+        data_cart = comp.attrs.get("data_carteira")
+        if redutor and data_cart:
+            ref = out["preco"].loc[:pd.Timestamp(data_cart) - pd.Timedelta(days=1)].dropna()
+            if not ref.empty:
+                d_ref = ref.index[-1]
+                lucro_hoje = lucro_emp.loc[d_ref].dropna()
+                r = ibov_nivel.pl_pelo_redutor(float(ref.iloc[-1]), float(redutor),
+                                               carteira, lucro_hoje)
+                tab = r.pop("tabela")
+                tab.sort_values("peso_pct", ascending=False).round(6).to_csv(
+                    PROCESSED / "ibov_pl_empresas.csv", index=False)
+                res.update({k: (round(float(v), 4) if isinstance(v, (int, float, np.floating)) else v)
+                            for k, v in r.items()})
+                res.update({"data": str(d_ref.date()), "data_carteira": data_cart,
+                            "indice": float(ref.iloc[-1]), "redutor": float(redutor)})
+
+        # Serie historica: soma(q x P) com o preco de cada papel.
+        try:
+            precos = ativos.fetch_ativos(sorted(cas["codigo"].astype(str).unique()))
+            serie = ibov_nivel.serie_pl(precos, cas, carteira, lucro_emp,
+                                        minimo=COBERTURA_MINIMA_IBOV)
+            out["pl_nivel"] = serie["pl"]
+            out["pl_nivel_cobertura_pct"] = serie["cobertura_pct"].where(serie["pl"].notna())
+            out["pl_nivel_pct"] = metrics.rolling_percentile(out["pl_nivel"], STAT_WINDOW)
+            out["pl_nivel_z"] = metrics.rolling_zscore(out["pl_nivel"], STAT_WINDOW)
+            sem_preco = sorted(set(cas["codigo"]) - set(precos.columns))
+            valida = serie["pl"].dropna()
+            res.update({"serie_inicio": str(valida.index.min().date()) if len(valida) else "",
+                        "serie_fim": str(valida.index.max().date()) if len(valida) else "",
+                        "serie_ultimo": round(float(valida.iloc[-1]), 3) if len(valida) else None,
+                        "papeis_sem_preco": sem_preco})
+            if res.get("data") and pd.Timestamp(res["data"]) in serie.index:
+                v_yf = serie.loc[pd.Timestamp(res["data"]), "valor_carteira"]
+                if np.isfinite(v_yf) and res.get("valor_coberto"):
+                    # As duas medidas do numerador, para o mesmo conjunto de companhias.
+                    res["checagem_numerador_pct"] = round(
+                        (float(v_yf) / float(res["valor_coberto"]) - 1.0) * 100.0, 2)
+        except Exception as exc:  # noqa: BLE001
+            res["serie_erro"] = str(exc)[:300]
+            log.error("serie do P/L em nivel falhou: %s", str(exc)[:300])
+
+        excl = carteira[~np.isfinite(carteira["f"])]
+        res["excluidas"] = [f"{r.codigos}: {r.motivo_exclusao}" for r in excl.itertuples()]
+        res["peso_excluido_pct"] = round(float(excl["peso_pct"].sum()), 3)
+        status.pl_ibov = res
+        if not res.get("pl") and not res.get("serie_ultimo"):
+            raise RuntimeError(f"nenhuma medida de P/L produzida: {res}")
+        st.ok = True
+        st.obs = int(out["pl_nivel"].notna().sum()) if "pl_nivel" in out.columns else 0
+        st.detalhe = (f"P/L 12m {res.get('pl', float('nan')):.2f}x em {res.get('data', '?')} "
+                      f"(indice x redutor; cobertura {res.get('cobertura_pct', 0):.1f}% do peso)"
+                      + (f"; serie por papel {res['serie_inicio']}..{res['serie_fim']}, ultimo "
+                         f"{res['serie_ultimo']:.2f}x" if res.get("serie_ultimo") else "")
+                      + (f"; numerador por papel x B3: {res['checagem_numerador_pct']:+.2f}%"
+                         if "checagem_numerador_pct" in res else "")
+                      + (f"; excluidas {len(res['excluidas'])} ({res['peso_excluido_pct']:.1f}% do peso)"
+                         if res["excluidas"] else ""))
+    except Exception as exc:  # noqa: BLE001
+        st.detalhe = str(exc)[:400]
+        log.error("pl_ibov_nivel falhou: %s", str(exc)[:300])
+    status.add(st)
 
 
 # ---------------------------------------------------------------------------
