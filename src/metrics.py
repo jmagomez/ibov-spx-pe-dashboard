@@ -333,6 +333,35 @@ def soma_mista(lucros: pd.DataFrame, daily_index: pd.DatetimeIndex, lag_days: in
     return total.where(cobertura > 0), cobertura, cob_tri
 
 
+def lucro_diario_por_empresa(lucros: pd.DataFrame, daily_index: pd.DatetimeIndex,
+                             lag_days: int, max_stale_anual: int,
+                             max_stale_trimestral: int, lag_dezembro: int | None = None,
+                             coluna: str = "lucro") -> pd.DataFrame:
+    """Lucro de 12 meses de CADA companhia, projetado no calendario diario.
+
+    Mesma construcao de soma_mista (melhor frequencia por companhia, defasagem
+    por prazo de divulgacao, teto de validade), sem somar: devolve uma coluna
+    por companhia. E o que o P/L em nivel precisa, porque la cada companhia
+    entra com um peso proprio (a fracao dela que esta na carteira do indice).
+
+    `coluna` escolhe a medida de lucro: "lucro" (consolidado) ou "lucro_ctrl"
+    (atribuivel aos socios da controladora).
+    """
+    colunas = {}
+    if lucros is None or lucros.empty:
+        return pd.DataFrame(index=daily_index)
+    for cd, g in lucros.groupby("cd_cvm"):
+        if coluna != "lucro" and coluna in g.columns:
+            g = g.assign(lucro=g[coluna].where(g[coluna].notna(), g["lucro"]))
+        valores, eh_tri = serie_12m_empresa(g)
+        if valores.dropna().empty:
+            continue
+        teto = max_stale_trimestral if eh_tri.iloc[-1] > 0 else max_stale_anual
+        colunas[cd] = step_to_daily(_defasar(valores, lag_days, lag_dezembro),
+                                    daily_index, 0, teto)
+    return pd.DataFrame(colunas, index=daily_index)
+
+
 # ---------------------------------------------------------------------------
 # Metricas de valuation
 # ---------------------------------------------------------------------------
