@@ -28,7 +28,8 @@ from .config import (MAX_STALE_DAYS_CAPE, MAX_STALE_DAYS_EPS_MENSAL,
                      MAX_STALE_DAYS_EPS_TRIMESTRAL, MAX_STALE_DAYS_JUROS,
                      MAX_STALE_DAYS_LUCRO_ANUAL,
                      MAX_STALE_DAYS_LUCRO_TRIMESTRAL, PROCESSED,
-                     REPORTING_LAG_DAYS_INDEX, REPORTING_LAG_DAYS_PIT, STAT_WINDOW)
+                     REPORTING_LAG_DAYS_INDEX, REPORTING_LAG_DAYS_PIT,
+                     REPORTING_LAG_DAYS_PIT_DEZEMBRO, STAT_WINDOW)
 from .sources import b3, cvm, juros, prices, shiller, spdji
 
 logging.basicConfig(level=logging.INFO,
@@ -486,7 +487,8 @@ def build_ibov(status: Status):
         # nao tem 4T. Ver metrics.ttm_from_quarterly e metrics.soma_mista.
         lucro_diario, cob, cob_tri = metrics.soma_mista(
             sel, out.index, REPORTING_LAG_DAYS_PIT,
-            MAX_STALE_DAYS_LUCRO_ANUAL, MAX_STALE_DAYS_LUCRO_TRIMESTRAL, pesos=pesos)
+            MAX_STALE_DAYS_LUCRO_ANUAL, MAX_STALE_DAYS_LUCRO_TRIMESTRAL, pesos=pesos,
+            lag_dezembro=REPORTING_LAG_DAYS_PIT_DEZEMBRO)
 
         # Mesmo criterio do portao de cobertura, aplicado data a data, na mesma
         # unidade dele.

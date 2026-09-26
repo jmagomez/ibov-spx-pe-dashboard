@@ -286,9 +286,22 @@ def serie_12m_empresa(lucros_empresa: pd.DataFrame) -> tuple[pd.Series, pd.Serie
     return valores, eh_tri
 
 
+def _defasar(s: pd.Series, lag_days: int, lag_dezembro: int | None) -> pd.Series:
+    """Desloca cada observacao pela defasagem do SEU prazo de divulgacao.
+
+    Observacao de dezembro e exercicio fechado (DFP, ou 4T derivado dela): prazo
+    de tres meses. As demais sao ITR: prazo de 45 dias. Usar a mesma defasagem
+    para as duas punha o lucro anual no ar duas semanas antes do prazo legal.
+    """
+    if lag_dezembro is None or s.empty:
+        return pd.Series(s.values, index=s.index + pd.Timedelta(days=lag_days))
+    dias = np.where(s.index.month == 12, lag_dezembro, lag_days)
+    return pd.Series(s.values, index=s.index + pd.to_timedelta(dias, unit="D"))
+
+
 def soma_mista(lucros: pd.DataFrame, daily_index: pd.DatetimeIndex, lag_days: int,
                max_stale_anual: int, max_stale_trimestral: int,
-               pesos: dict | None = None):
+               pesos: dict | None = None, lag_dezembro: int | None = None):
     """Lucro agregado de 12 meses, com cada companhia na melhor frequencia que tem.
 
     Devolve (total, cobertura, cobertura_trimestral): a soma ponto a ponto; o
@@ -298,7 +311,8 @@ def soma_mista(lucros: pd.DataFrame, daily_index: pd.DatetimeIndex, lag_days: in
     a escolha passou a ser por companhia.
 
     O teto de validade da ultima observacao segue o tipo dela: 200 dias se for
-    trimestral, 550 se for anual (ver config.py).
+    trimestral, 550 se for anual (ver config.py). Com `lag_dezembro`, as
+    observacoes de dezembro usam essa defasagem em vez de `lag_days`.
     """
     total = pd.Series(0.0, index=daily_index)
     cobertura = pd.Series(0.0, index=daily_index)
@@ -310,8 +324,8 @@ def soma_mista(lucros: pd.DataFrame, daily_index: pd.DatetimeIndex, lag_days: in
         if valores.dropna().empty:
             continue
         teto = max_stale_trimestral if eh_tri.iloc[-1] > 0 else max_stale_anual
-        d = step_to_daily(valores, daily_index, lag_days, teto)
-        t = step_to_daily(eh_tri, daily_index, lag_days, teto)
+        d = step_to_daily(_defasar(valores, lag_days, lag_dezembro), daily_index, 0, teto)
+        t = step_to_daily(_defasar(eh_tri, lag_days, lag_dezembro), daily_index, 0, teto)
         w = 1.0 if pesos is None else float(pesos.get(str(cd), 0.0))
         total = total.add(d.fillna(0.0))
         cobertura = cobertura.add(d.notna().astype(float) * w)

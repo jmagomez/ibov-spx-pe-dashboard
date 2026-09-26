@@ -211,3 +211,27 @@ def test_extracao_descarta_lucro_zero():
                         "CD_CVM": "2", "DENOM_CIA": "Y", "ORDEM_EXERC": "ÚLTIMO"}])
     out = cvm._extract_profit(df, freq="A")
     assert list(out["cd_cvm"]) == ["2"]
+
+
+# ---------------------------------------------------------------------------
+# Defasagem point-in-time por prazo de divulgacao
+# ---------------------------------------------------------------------------
+
+def test_exercicio_anual_so_entra_depois_do_prazo_da_dfp():
+    """A DFP tem prazo de tres meses. Com defasagem unica de 75 dias, o lucro de
+    31/12 entrava em 16/03 -- duas semanas antes do prazo legal de 31/03."""
+    g = pd.DataFrame({"cd_cvm": "1", "data_fim": pd.to_datetime(["2024-12-31"]),
+                      "freq": ["A"], "lucro": [10.0]})
+    dias = pd.date_range("2025-03-10", "2025-04-10", freq="D")
+    total, _, _ = metrics.soma_mista(g, dias, 75, 550, 200, lag_dezembro=92)
+    assert np.isnan(total.loc["2025-03-31"]), "no prazo legal ainda nao e publico por regra"
+    assert total.loc["2025-04-02"] == pytest.approx(10.0)
+
+
+def test_trimestre_do_itr_mantem_a_defasagem_curta():
+    dias = pd.date_range("2026-08-01", "2026-09-30", freq="D")
+    total, _, _ = metrics.soma_mista(_vale(), dias, 75, 550, 200, lag_dezembro=92)
+    # 30/06 + 75 = 13/09: antes disso vale o LTM do 1T26
+    ltm_1t26 = (12.19 + 14.67 + (11.81 - 35.03) + 10.20)
+    assert total.loc["2026-09-12"] == pytest.approx(ltm_1t26)
+    assert total.loc["2026-09-13"] == pytest.approx(14.67 + (11.81 - 35.03) + 10.20 + 7.04)
