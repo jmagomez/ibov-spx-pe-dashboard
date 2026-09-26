@@ -91,8 +91,14 @@ CVM_ITR_BASE = "https://dados.cvm.gov.br/dados/CIA_ABERTA/DOC/ITR/DADOS/"
 #   0  = convencao de indice (S&P DJI/Bloomberg): o trimestre entra na serie
 #        datado do proprio fim de trimestre. Comparavel a dados de mercado,
 #        mas NAO e point-in-time: no dia 30/06 ninguem conhecia o lucro do 2T.
-#   >0 = modo point-in-time. 75 dias cobre o prazo regulatorio brasileiro de
-#        ITR (45 dias) e DFP (3 meses) com folga, e o ciclo de reporte dos EUA.
+#   >0 = modo point-in-time. 75 dias cobrem o prazo do ITR (45 dias) com folga
+#        e o ciclo trimestral de reporte dos EUA.
+#
+# CORRECAO de 26/09/2026: este comentario dizia que 75 dias cobriam tambem o
+# prazo da DFP "com folga". Nao cobrem: a DFP tem prazo de TRES meses apos o fim
+# do exercicio (31/03 para quem fecha em dezembro), e 31/12 + 75 dias = 16/03.
+# Para o Ibovespa, observacoes de dezembro (exercicio anual e 4T derivado)
+# passam a usar REPORTING_LAG_DAYS_PIT_DEZEMBRO.
 #
 # O pipeline gera as DUAS series. A convencao de indice e a exibida por padrao
 # no dashboard, por ser a comparavel ao que o mercado publica; a point-in-time
@@ -100,6 +106,9 @@ CVM_ITR_BASE = "https://dados.cvm.gov.br/dados/CIA_ABERTA/DOC/ITR/DADOS/"
 # das analises criticas.
 REPORTING_LAG_DAYS_INDEX = 0
 REPORTING_LAG_DAYS_PIT = 75
+# 31/12 + 92 dias = 02/04: cobre o prazo de 31/03 da DFP. So o Ibovespa usa;
+# o LPA do S&P vem mensal, ja com o ciclo de reporte americano embutido.
+REPORTING_LAG_DAYS_PIT_DEZEMBRO = 92
 
 # Numero minimo de trimestres necessarios para formar um LPA 12m.
 TTM_QUARTERS = 4
@@ -115,14 +124,23 @@ STAT_WINDOW = 2520
 #
 # EPS trimestral: 92 dias de trimestre + 45 dias de prazo de divulgacao + folga.
 MAX_STALE_DAYS_EPS_TRIMESTRAL = 180
-# EPS mensal (planilha Shiller): serie mensal, tolerancia de um trimestre.
-MAX_STALE_DAYS_EPS_MENSAL = 120
+# EPS mensal (planilha Shiller). Era 120 dias, e 120 dias esvaziariam o P/E do
+# S&P a partir de 29/09/2026 sem que nada estivesse errado: a coluna E da
+# planilha e LPA de 12 meses interpolado a partir do lucro TRIMESTRAL, e o
+# ultimo trimestre fechado (2T26, datado 06/2026) so e sucedido quando o 3T26
+# for compilado pela S&P e incorporado por Shiller -- em geral dezembro. O LPA
+# de junho e, ate la, o LPA de 12 meses mais recente que existe, e nao um dado
+# vencido. 210 dias = fim do trimestre seguinte + ~120 dias de compilacao.
+MAX_STALE_DAYS_EPS_MENSAL = 210
 # CAPE: mensal, mesma tolerancia.
 MAX_STALE_DAYS_CAPE = 120
 # Lucro anual (DFP): exercicio + 3 meses de prazo regulatorio + folga de um ano,
 # porque a serie anual e degrau por construcao e vale ate o exercicio seguinte.
 MAX_STALE_DAYS_LUCRO_ANUAL = 550
 MAX_STALE_DAYS_LUCRO_TRIMESTRAL = 200
+# Juros diarios do FRED: a serie so tem buraco em feriado. Dez dias corridos
+# cobrem feriado prolongado; mais que isso e fonte parada.
+MAX_STALE_DAYS_JUROS = 10
 
 # --- Faixa de plausibilidade do CAPE ---------------------------------------
 # O CAPE do S&P 500 oscilou entre ~5 (1920, 1982) e ~44 (2000) em toda a serie

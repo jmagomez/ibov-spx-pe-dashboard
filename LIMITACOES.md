@@ -22,7 +22,9 @@ raramente é dito.
 ## 2. Viés de sobrevivência no Ibovespa — o problema mais grave da série brasileira
 
 A B3 não publica em formato aberto o histórico de composição do Ibovespa. O pipeline usa a
-**carteira vigente** e aplica os lucros dessas mesmas empresas ao passado.
+**carteira vigente** e aplica os lucros dessas mesmas empresas ao passado. Com o P/L em nível
+(seção 10), isso ficou explícito: o número de hoje é o P/L do índice; o histórico é o P/L que a
+carteira de hoje teria tido.
 
 O efeito é sistemático e conhecido: empresas que entraram no índice depois de 2010 tendem a
 ter entrado **porque cresceram**, e empresas que saíram tendem a ter saído **porque
@@ -32,18 +34,20 @@ agregado histórico fica **superestimado**, e o múltiplo, **subestimado** — o
 mais barato no passado do que estava.
 
 A direção do viés é conhecida; a magnitude, não. Não há como estimá-la sem os dados que
-faltam. Por isso a série do Ibovespa é rotulada como índice de valuation e não como P/E, e
-por isso a comparação em nível com o S&P 500 é explicitamente desaconselhada.
+faltam. Por isso o percentil histórico do P/L do Ibovespa deve ser lido como posição da carteira
+atual contra a própria história, e não do índice contra a dele.
 
 **O que resolveria:** base de constituintes point-in-time (EODHD, Norgate, Refinitiv,
 Bloomberg). Todas pagas. É a fronteira do que este projeto entrega de graça.
 
 ## 3. Cobertura da conciliação — e o que o portão de 80% não resolve
 
-Não existe tabela de-para pública entre ticker da B3 e código CVM. A conciliação é feita por
-razão social normalizada, com correspondência por prefixo como segunda tentativa.
+A conciliação usa o cadastro de listadas da B3, que traz o código CVM e o CNPJ de cada
+emissor; razão social normalizada só entra como último recurso, quando o cadastro não
+responde. Em setembro de 2026, os 76 ativos da carteira casaram por código CVM, e a lista de
+pares fica gravada em `data/processed/ibov_conciliacao.csv`.
 
-Isso erra em dois sentidos:
+Quando o cadastro falha e a conciliação cai para razão social, ela erra em dois sentidos:
 
 - **Falso negativo:** a empresa está no índice, mas a grafia diverge e ela fica de fora do
   agregado. Reduz a cobertura, e o portão de 80% detecta.
@@ -52,7 +56,8 @@ Isso erra em dois sentidos:
 
 O segundo caso é o mais perigoso, porque se manifesta como um número plausível. A mitigação
 é parcial: prefixo mínimo de 12 caracteres e exigência de 8 caracteres na chave. A auditoria
-real exige inspecionar a lista de pares casados, que fica em `data/processed/`.
+real exige inspecionar a lista de pares casados, em `data/processed/ibov_conciliacao.csv`
+(coluna `via`).
 
 Um detalhe adicional: empresas com múltiplas classes de ação (ON e PN) aparecem duas vezes na
 carteira do índice e uma vez na CVM. O agregado de lucro conta a companhia uma vez — correto
@@ -82,18 +87,22 @@ com viés próprio, não uma série melhor.
 |---|---|
 | S&P DJI (`sp-500-eps-est.xlsx`) | Layout muda periodicamente. O parser busca por conteúdo, não por posição, mas uma mudança grande quebra. |
 | B3 (endpoint de carteira) | Endpoint interno do portal, sem contrato público de estabilidade. Pode mudar sem aviso. |
-| Stooq | Agregador de terceiros, não fonte oficial de índice. Pode ter ajustes e falhas pontuais. |
+| yfinance / Yahoo | Provedor de preço em uso desde 08/2026. Biblioteca de terceiros sobre endpoint não oficial; já respondeu 429 a IP de datacenter. |
+| Stooq | Agregador de terceiros, reserva do yfinance. Pode ter ajustes e falhas pontuais. |
+| FRED (juros) | Oficial, mas deu ReadTimeout no runner em 26/09/2026. O CSV diário do Tesouro dos EUA entra como reserva. |
+| B3 (redutor) | Vem no cabeçalho do mesmo endpoint interno da carteira. Sem ele, o P/L de hoje sai só pela soma de quantidade × preço. |
+| yfinance (ações) | Preço de cada papel da carteira, para a série histórica do P/L. Papel sem histórico (renomeado, IPO recente) reduz a cobertura das datas antigas. |
 | CVM | Portal estável, mas o ITR só mantém cinco anos e a estrutura de contas mudou ao longo do tempo. |
 | Shiller (`ie_data.xls`) | Hospedado em blob de terceiros; a URL já mudou historicamente. |
 
-Nenhuma dessas fontes tem SLA. Todas podem falhar em qualquer sábado. O projeto trata isso
+Nenhuma dessas fontes tem SLA. Todas podem falhar em qualquer dia útil. O projeto trata isso
 mostrando a falha em vez de mascará-la — mas o usuário precisa olhar o painel de diagnóstico,
 não só o gráfico.
 
-Ponto específico sobre o Stooq: para o S&P 500 seria mais rigoroso usar o nível oficial do
+Ponto específico sobre o preço: para o S&P 500 seria mais rigoroso usar o nível oficial do
 índice da própria S&P DJI, para casar numerador e denominador na mesma fonte. Não há endpoint
-gratuito estável para isso. A diferença entre o fechamento do Stooq e o oficial deve ser
-desprezível, mas é uma inconsistência de fonte não verificada.
+gratuito estável para isso. Conferido em 25/09/2026, o fechamento usado (7.743,4) bate com o
+publicado pela imprensa financeira na casa das unidades, mas a conferência não é automática.
 
 ## 6. As estatísticas de posição são ancoradas em um período peculiar
 
@@ -103,6 +112,12 @@ aperto monetário. Não é um "período normal" contra o qual medir normalidade.
 
 Com uma série que começa em 2010 e janela de 10 anos, o percentil só existe a partir de
 ~2015 — e os primeiros anos da estatística são calculados sobre janela incompleta.
+
+Desde 26/09/2026 o dashboard mostra, ao lado, o percentil contra **toda** a planilha de Shiller
+(P/E e CAPE desde 1871). A diferença entre as duas leituras é o ponto: com o P/E em 26x, o
+percentil de 10 anos marcava 68 — leitura que sugere nível moderado — porque a década de
+referência foi, ela própria, das mais caras já registradas. Ver a tabela "Posição na história
+longa" no painel.
 
 ## 7. Lucro agregado negativo
 
@@ -119,6 +134,73 @@ backtest construído sobre a série `pe` (convenção de índice) tem look-ahead
 qualquer uso que envolva decisão simulada no tempo, a série correta é `pe_pit`.
 
 ---
+
+## 9. Lucro contábil (GAAP) inclui o que não se repete — e em 2026 isso reduziu o P/E
+
+O LPA do S&P 500 usado aqui é o *as reported*: lucro líquido GAAP. Ele inclui baixas contábeis,
+reestruturações e, desde a ASU 2016-01 (2018), a **marcação a mercado de participações em
+ações** — inclusive de empresas fechadas, a cada nova rodada de captação delas.
+
+Em 2025-26 esse último item deixou de ser detalhe. No 2º trimestre de 2026 a FactSet registrou
+crescimento de lucro de 50,4% a/a para o índice, com dois ganhos não operacionais puxando o
+número: US$ 98 bi da Alphabet em títulos patrimoniais e US$ 53,4 bi da Amazon na participação
+na Anthropic. Sem essas duas companhias, a surpresa de lucro da temporada cairia de 29,2% para
+10,9% (FactSet, *Earnings Insight*, 07/08/2026).
+
+No dado deste painel: o LPA 12m da planilha de Shiller subiu **32,7% a/a** até jun/2026
+(de 222,5 para 295,4). Ordem de grandeza do efeito, **estimada** e só para os dois ganhos acima,
+só no 2T26: cerca de US$ 14 por ação do índice (alíquota de ~23% e divisor do índice de ~8,4 bi
+como premissas). Tirados esses US$ 14, o P/E de 26,2x de 25/09/2026 iria para ~27,5x. É um piso
+do efeito, não o efeito inteiro: trimestres anteriores também tiveram ganhos dessa natureza.
+
+A consequência para quem lê: **o P/E *trailing* GAAP deste painel está, neste momento,
+*abaixo* do P/E sobre lucro recorrente**, e não acima. O cartão "LPA 12m, variação a/a" passou
+a sinalizar variação acima de ±20% justamente para isso aparecer sem precisar abrir o CSV.
+
+Três números diferentes circulam como "P/E do S&P 500", e não são contraditórios:
+
+| Medida | Setembro/2026 | O que muda |
+|---|---|---|
+| P/E projetado 12m (FactSet) | ~20x | Lucro *esperado*, com crescimento de ~25-30% embutido |
+| P/E *trailing* GAAP (este painel) | ~26x | Lucro *realizado*, com ganhos não recorrentes |
+| P/E *trailing* ex-ganhos de IA (estimativa acima) | ~27,5x | Lucro realizado, sem os dois maiores ganhos do 2T26 |
+
+A S&P DJI publica também o LPA *operating*, que exclui parte desses itens. O coletor dela
+existe (`src/sources/spdji.py`), mas o arquivo responde 403 ao runner do GitHub desde a
+execução #4 — ver `ESTADO.md`.
+
+## 10. O P/L do Ibovespa em nível: o que foi resolvido e o que continua aberto
+
+Desde 26/09/2026 o Ibovespa tem P/L em nível (`METODOLOGIA.md`, seção 4). Três vieses da série
+anterior foram resolvidos na construção: o lucro passou a ser o **atribuível à controladora**, cada
+companhia entra na **fração que o índice carrega** (quantidade teórica / ações em circulação), e com
+isso holding e controlada no mesmo índice deixaram de ser dupla contagem. O numerador confere com o
+da própria B3 (índice × redutor) com diferença de 0,04%.
+
+O que continua aberto, em ordem de peso:
+
+- **Viés de sobrevivência no histórico** (seção 2). O valor de hoje é o P/L da carteira de hoje; o
+  histórico é o P/L que esta carteira teria tido. Companhias com lucro deprimido no passado (Petrobras
+  em 2014-16, Vale em 2015 e 2019) puxam o P/L histórico para cima — a mediana desde 2011 (~15x) não
+  é "o P/L médio do Ibovespa".
+- **Lucro contábil, não recorrente.** O LTM é IFRS como publicado. Em 09/2026 a Vale aparece a ~28x
+  porque o 4T25 carrega baixas contábeis; o agregado inclui isso. Não há ajuste de itens não
+  recorrentes, pelo mesmo motivo da seção 9.
+- **Mesmo LPA para ON e PN.** O lucro por ação é L/N para todas as classes. Onde o estatuto dá à PN
+  dividendo 10% maior (Bradesco: LPA básico ON 2,13 x PN 2,35 em 2025), a diferença é ignorada.
+- **Fração f constante no histórico.** O número de ações é o do último formulário. Emissões e
+  recompras passadas não são refeitas; desdobramentos, sim, porque o preço do yfinance vem ajustado
+  por eles.
+- **Companhias sem lucro consolidado utilizável** saem do numerador e do denominador pelo peso delas:
+  TIM (DRE consolidada vazia), Assaí (sem formulário sob o código CVM atual) e Bradespar — 1,3% do
+  peso em 09/2026 —, e Tenda (número de ações em escala que não fecha com a quantidade teórica, 0,1%).
+  A cobertura aparece no painel e em `status.json` (`pl_ibov`).
+- **Composição das units** (BPAC11, ENGI11, IGTI11, KLBN11, SANB11, TAEE11) vem de uma tabela no
+  código. Unit fora da tabela é excluída, não presumida; uma mudança de composição exige atualizar a
+  tabela.
+
+Corrigido também em 26/09/2026 (ver `ESTADO.md`): o lucro de 12 meses do trecho trimestral deixava o
+4º trimestre de fora, e lucro exatamente zero (DRE consolidada vazia) entrava como zero.
 
 ## O que estas séries não permitem concluir
 

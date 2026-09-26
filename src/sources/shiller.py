@@ -234,7 +234,29 @@ def _escolher_cape(df: pd.DataFrame, body: pd.DataFrame, cols: list, h: int):
 
 
 def fetch_tabela() -> pd.DataFrame:
-    """DataFrame mensal com colunas: preco, lucro_ttm, cape.
+    """Tabela mensal desde START_DATE (2010): preco, lucro_ttm, cape.
+
+    Recorte da tabela completa; ver fetch_historico() para a serie desde 1871.
+    """
+    t = fetch_historico()
+    out = t.loc[START_DATE:].copy()
+    out.attrs.update(t.attrs)
+    if out.empty:
+        raise SourceUnavailable("tabela Shiller vazia apos filtro de data")
+    if out["lucro_ttm"].notna().sum() < 12:
+        raise SourceUnavailable(
+            "coluna de lucro da planilha Shiller nao parece numerica; layout mudou")
+    return out
+
+
+def fetch_historico() -> pd.DataFrame:
+    """DataFrame mensal COMPLETO (desde 1871): preco, lucro_ttm, cape.
+
+    Existe para que o dashboard possa dizer onde o multiplo de hoje cai na
+    historia inteira, e nao so na ultima decada. Ate aqui a planilha era lida
+    desde 1871 e cortada em 2010 antes de qualquer uso -- 140 anos de
+    referencia jogados fora, e o percentil de 10 anos ficava sozinho para
+    responder "isto e caro?".
 
     Layout historico da aba Data: coluna 0 = Date, 1 = P, 2 = D, 3 = E.
     A posicao e usada apenas para P/D/E; o CAPE e localizado pelo rotulo.
@@ -268,9 +290,9 @@ def fetch_tabela() -> pd.DataFrame:
 
     out = pd.DataFrame({"preco": preco.values, "lucro_ttm": lucro.values,
                         "cape": cape.values}, index=datas)
-    out = out[~out.index.isna()].sort_index().loc[START_DATE:]
+    out = out[~out.index.isna()].sort_index()
     if out.empty:
-        raise SourceUnavailable("tabela Shiller vazia apos filtro de data")
+        raise SourceUnavailable("tabela Shiller vazia")
     if out["lucro_ttm"].notna().sum() < 12:
         raise SourceUnavailable(
             "coluna de lucro da planilha Shiller nao parece numerica; layout mudou")

@@ -14,7 +14,9 @@ sao as quatro perguntas abertas, em diagnostico2.py:
   (d) a CVM publica lucro por acao, e a B3 quantidade teorica?
 
 O arquivo diagnostico_cape_conciliacao.py fica no repositorio como registro de
-como as duas primeiras foram descobertas.
+como as duas primeiras foram descobertas. As quatro de diagnostico2.py tambem
+foram respondidas. A pergunta aberta agora e a de diagnostico3.py: da para
+calcular o P/L do Ibovespa em NIVEL (redutor da B3, LPA por classe na CVM)?
 """
 from __future__ import annotations
 
@@ -23,11 +25,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from diagnostico2 import (a_fontes_de_lpa, b_anos_de_dfp,       # noqa: E402
-                          c_cobertura_no_tempo, d_lucro_por_acao)
+import diagnostico3  # noqa: E402
 
 if __name__ == "__main__":
-    a_fontes_de_lpa()
-    b_anos_de_dfp()
-    d_lucro_por_acao()
-    c_cobertura_no_tempo()
+    diagnostico3.main()

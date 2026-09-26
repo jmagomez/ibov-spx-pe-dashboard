@@ -55,8 +55,40 @@ def fetch_ibov_composition() -> pd.DataFrame:
             df[col] = pd.to_numeric(df[col], errors="coerce")
     if "codigo" not in df.columns:
         raise SourceUnavailable(f"payload da B3 sem coluna de codigo: {list(df.columns)}")
-    log.info("Ibovespa: %d ativos na carteira vigente", len(df))
+    df.attrs.update(ler_cabecalho(payload.get("header") or {}))
+    log.info("Ibovespa: %d ativos na carteira vigente; redutor %s em %s", len(df),
+             df.attrs.get("redutor"), df.attrs.get("data_carteira"))
     return df
+
+
+def _numero_br(v) -> float | None:
+    try:
+        return float(str(v).replace(".", "").replace(",", "."))
+    except (TypeError, ValueError):
+        return None
+
+
+def ler_cabecalho(header: dict) -> dict:
+    """Redutor e data da carteira, do cabecalho da carteira do dia.
+
+    Pela metodologia da B3, valor do indice = soma(preco x quantidade teorica)
+    / redutor. Com o redutor, o valor da carteira em reais sai do proprio
+    indice: soma(preco x quantidade) = indice x redutor. E o numerador do P/L
+    em nivel. Verificado em 26/09/2026: o cabecalho traz
+    {"reductor": "14.013.018,53470505", "theoricalQty": "93.803.750.400",
+    "date": "28/09/26"}.
+    """
+    out = {}
+    red = _numero_br(header.get("reductor"))
+    if red and red > 0:
+        out["redutor"] = red
+    qt = _numero_br(header.get("theoricalQty"))
+    if qt and qt > 0:
+        out["qtd_teorica_total"] = qt
+    data = pd.to_datetime(str(header.get("date", "")), format="%d/%m/%y", errors="coerce")
+    if pd.notna(data):
+        out["data_carteira"] = str(data.date())
+    return out
 
 
 def fetch_empresas_listadas() -> pd.DataFrame:

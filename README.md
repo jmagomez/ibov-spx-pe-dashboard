@@ -29,13 +29,15 @@ esse LPA acumulado em 12 meses. É a mesma construção usada por provedores de 
    desde 2010 não está publicamente disponível — apenas o anual, via DFP.
 3. Não há série pública de LPA agregado do Ibovespa análoga à da S&P DJI.
 
-O que o projeto faz com isso: constrói um **índice de valuation normalizado (base 100)**
-para o Ibovespa, com a carteira vigente e os lucros da CVM, declara o viés de sobrevivência,
-marca qual trecho usa lucro anual e qual usa trimestral, e **suprime a série inteira** se a
-conciliação entre carteira e demonstrações cobrir menos de 80% do peso do índice.
+O que o projeto faz com isso: calcula o **P/L do Ibovespa em nível** com a carteira vigente da
+B3 — Σ(quantidade teórica × preço) / Σ(fração da companhia no índice × lucro de 12 meses
+atribuível à controladora, da CVM). O numerador confere com o da própria B3 (índice × redutor).
+O valor de hoje é o P/L do índice; o histórico é o P/L que a carteira de hoje teria tido, e
+carrega viés de sobrevivência, declarado. Data sem pelo menos 80% do peso coberto não é publicada.
 
-Comparar a linha do Ibovespa com a do S&P 500 **em nível** é um erro de leitura. O que é
-comparável é direção, amplitude e posição de cada série na sua própria história.
+Mesmo em nível, comparar o P/L do Ibovespa com o P/E do S&P 500 é frágil: composição setorial,
+contabilidade (IFRS × US GAAP) e moeda explicam boa parte da diferença. O que é comparável sem
+ressalva é a posição de cada um na sua própria história.
 
 Detalhamento completo em [`LIMITACOES.md`](LIMITACOES.md).
 
@@ -45,13 +47,18 @@ Detalhamento completo em [`LIMITACOES.md`](LIMITACOES.md).
 
 | Métrica | Índice | Construção |
 |---|---|---|
-| P/E trailing 12m | S&P 500 | Preço ÷ LPA as-reported 12m (S&P DJI) |
+| P/E trailing 12m | S&P 500 | Preço ÷ LPA as-reported (GAAP) 12m — S&P DJI, ou Shiller quando a S&P DJI não responde |
 | P/E trailing point-in-time | S&P 500 | Idem, com defasagem de 75 dias de divulgação |
 | P/E operating | S&P 500 | Idem, com LPA operating |
 | CAPE (Shiller P/E) | S&P 500 | Planilha `ie_data` de Robert Shiller |
 | Earnings yield | S&P 500 | 1 ÷ (P/E), em % a.a. |
 | Z-score e percentil | ambos | Janela móvel de 10 anos contra a própria distribuição |
-| Índice de valuation (base 100) | Ibovespa | Preço do índice ÷ lucro agregado das componentes, normalizado |
+| Percentil na história longa | S&P 500 | P/E e CAPE contra toda a planilha de Shiller (desde 1871) |
+| LPA 12m, variação a/a | S&P 500 | Sinaliza crescimento atípico do lucro (itens não recorrentes) |
+| Rendimento do lucro − juro real | S&P 500 | `earnings yield − TIPS 10a` e `1/CAPE − TIPS 10a`, em p.p. (FRED) |
+| P/L 12m em nível (carteira vigente) | Ibovespa | Σ(q × preço) ÷ Σ(fração no índice × lucro 12m da controladora); hoje também por índice × redutor da B3 |
+| P/L implícito por companhia | Ibovespa | 20 maiores posições, em `ibov_pl_empresas.csv` |
+| Índice de valuation (base 100) | Ibovespa | Série anterior, mantida para comparação: preço ÷ lucro total das componentes |
 | Carteira vigente | Ibovespa | Composição atual da B3, 30 maiores pesos |
 
 Todas as séries em `data/processed/`, em CSV, com a mesma granularidade do gráfico.
@@ -87,6 +94,7 @@ src/
   config.py            parâmetros, URLs e convenções de cálculo
   metrics.py           funções puras de cálculo — sem I/O, 100% testáveis offline
   build.py             orquestração, portões de cobertura, diagnóstico
+  ibov_nivel.py        P/L do Ibovespa em nível: fração de cada companhia, units, redutor
   render.py            geração do docs/index.html
   sources/
     http.py            camada HTTP única, com retry e falha explícita
@@ -95,15 +103,22 @@ src/
     shiller.py         CAPE e LPA 12m (Robert Shiller, Yale) — escolhe o espelho
                        com o dado mais recente, não o primeiro que responder
     b3.py              composição vigente do Ibovespa (B3)
+    juros.py           Treasury e TIPS de 10 anos (FRED, com o Tesouro dos EUA de reserva)
+    ativos.py          preco de cada papel da carteira do Ibovespa (yfinance)
     cvm.py             lucro consolidado das companhias (CVM — DFP e ITR)
 tools/
   summary.py           resumo da execução no Step Summary do Actions
   digest.py            resumo diário enviado por e-mail (HTML + texto)
   gate.py              falha a execução apenas se nenhuma fonte respondeu
+  diagnostico3.py      o que B3 e CVM publicam de fato (redutor, contas, ações) -- roda com
+                       diagnostico=sim no disparo manual
 tests/
   test_metrics.py      funções de cálculo
   test_espelho_shiller.py  escolha de espelho da ie_data — trava o defeito de 2024
   test_digest.py       o resumo diário não publica número vencido como se fosse do dia
+  test_ltm_trimestral.py  lucro de 12 meses do ITR com o 4T derivado da DFP
+  test_leitura.py      crescimento do lucro, história longa, juros
+  test_ibov_nivel.py   P/L do Ibovespa em nível com os números reais de 26/09/2026
 docs/index.html        dashboard estático
 data/processed/        séries publicadas + status.json com o diagnóstico
 ```

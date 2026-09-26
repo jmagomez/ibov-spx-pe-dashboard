@@ -23,12 +23,14 @@ from datetime import datetime, timezone
 import numpy as np
 import pandas as pd
 
-from . import metrics, reconcile
+from . import ibov_nivel, metrics, reconcile
 from .config import (MAX_STALE_DAYS_CAPE, MAX_STALE_DAYS_EPS_MENSAL,
-                     MAX_STALE_DAYS_EPS_TRIMESTRAL, MAX_STALE_DAYS_LUCRO_ANUAL,
+                     MAX_STALE_DAYS_EPS_TRIMESTRAL, MAX_STALE_DAYS_JUROS,
+                     MAX_STALE_DAYS_LUCRO_ANUAL,
                      MAX_STALE_DAYS_LUCRO_TRIMESTRAL, PROCESSED,
-                     REPORTING_LAG_DAYS_INDEX, REPORTING_LAG_DAYS_PIT, STAT_WINDOW)
-from .sources import b3, cvm, prices, shiller, spdji
+                     REPORTING_LAG_DAYS_INDEX, REPORTING_LAG_DAYS_PIT,
+                     REPORTING_LAG_DAYS_PIT_DEZEMBRO, STAT_WINDOW)
+from .sources import ativos, b3, cvm, juros, prices, shiller, spdji
 
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s %(levelname)-7s %(name)s :: %(message)s")
@@ -59,6 +61,8 @@ class Status:
     vigencias: list = field(default_factory=list)
     conciliacao: dict = field(default_factory=dict)
     dfp_ausentes: list = field(default_factory=list)
+    historico_longo: dict = field(default_factory=dict)
+    pl_ibov: dict = field(default_factory=dict)
 
     def add(self, s: Stage) -> None:
         self.estagios.append(asdict(s))
@@ -118,10 +122,12 @@ def build_spx(status: Status) -> pd.DataFrame:
     # linhagem declarada, e o painel de diagnostico diz qual foi usada.
     st = Stage("eps_spx")
     erros_eps = []
+    fonte_eps, teto_eps = None, None
     try:
         q = spdji.fetch_sp500_quarterly_eps()
         col = "eps_as_reported" if "eps_as_reported" in q.columns else "eps_operating"
         ttm = metrics.ttm_from_quarterly(q[col])
+        fonte_eps, teto_eps = ttm, MAX_STALE_DAYS_EPS_TRIMESTRAL
         out["eps_ttm"] = metrics.step_to_daily(
             ttm, out.index, REPORTING_LAG_DAYS_INDEX, MAX_STALE_DAYS_EPS_TRIMESTRAL)
         out["eps_ttm_pit"] = metrics.step_to_daily(
@@ -142,6 +148,7 @@ def build_spx(status: Status) -> pd.DataFrame:
             # A coluna E da planilha Shiller JA e LPA acumulado em 12 meses:
             # entra direto, sem soma movel de quatro trimestres.
             eps_m = shiller.fetch_eps_ttm()
+            fonte_eps, teto_eps = eps_m, MAX_STALE_DAYS_EPS_MENSAL
             out["eps_ttm"] = metrics.step_to_daily(
                 eps_m, out.index, 0, MAX_STALE_DAYS_EPS_MENSAL)
             out["eps_ttm_pit"] = metrics.step_to_daily(
@@ -169,6 +176,15 @@ def build_spx(status: Status) -> pd.DataFrame:
         out["pe_z"] = metrics.rolling_zscore(out["pe"], STAT_WINDOW)
         out["pe_pct"] = metrics.rolling_percentile(out["pe"], STAT_WINDOW)
 
+    # Variacao a/a do LPA 12m, sobre a serie-fonte. Existe para sinalizar o
+    # que o P/E sozinho esconde: um LPA que sobe 30% em um ano derruba o P/E
+    # sem que o preco tenha ficado mais barato -- e, em 2026, boa parte dessa
+    # alta veio de ganho contabil nao recorrente (marcacao a mercado de
+    # participacoes em empresas de IA). Ver LIMITACOES.md, secao 9.
+    if fonte_eps is not None:
+        yoy = metrics.variacao_anual(fonte_eps)
+        out["eps_yoy_pct"] = metrics.step_to_daily(yoy, out.index, 0, teto_eps)
+
     st = Stage("cape_shiller")
     try:
         cape = shiller.fetch_cape()
@@ -183,7 +199,97 @@ def build_spx(status: Status) -> pd.DataFrame:
         st.detalhe = str(exc)
         log.error("cape_shiller falhou: %s", exc)
     status.add(st)
+
+    _juros(status, out)
+    _historia_longa(status, out)
     return out
+
+
+def _juros(status: Status, out: pd.DataFrame) -> None:
+    """Treasury e TIPS de 10 anos, e o premio do rendimento de lucro sobre eles.
+
+    earnings_yield - TIPS : proxy do premio de risco de acoes (lucro e real;
+                            o comparavel e o juro real).
+    1/CAPE - TIPS         : a mesma leitura com lucro normalizado de 10 anos --
+                            e o "excess CAPE yield" de Shiller, com juro de
+                            mercado no lugar do juro real que ele estima.
+    earnings_yield - UST  : a comparacao ingenua com o juro nominal. Fica para
+                            quem quiser ver, com o aviso de que mistura um
+                            rendimento real com um nominal.
+    """
+    st = Stage("juros_fred")
+    try:
+        series = {nome: juros.fetch_serie(nome) for nome in juros.SERIES}
+        for nome, s in series.items():
+            out[nome] = metrics.step_to_daily(s, out.index, 0, MAX_STALE_DAYS_JUROS)
+            _registrar_vigencia(status, nome, s, 0, MAX_STALE_DAYS_JUROS, out.index)
+        if "earnings_yield" in out.columns:
+            out["ey_menos_real"] = metrics.premio_sobre_juro(out["earnings_yield"], out["tips10"])
+            out["ey_menos_nominal"] = metrics.premio_sobre_juro(out["earnings_yield"], out["ust10"])
+        if "cape" in out.columns:
+            out["cape_yield"] = 100.0 / out["cape"].where(out["cape"] > 0)
+            out["cape_yield_menos_real"] = metrics.premio_sobre_juro(out["cape_yield"], out["tips10"])
+        s10 = series["tips10"]
+        st.ok, st.obs = True, int(len(s10))
+        st.inicio, st.fim = str(s10.index.min().date()), str(s10.index.max().date())
+        fontes = sorted({str(x.attrs.get("fonte", "?")) for x in series.values()})
+        st.detalhe = (f"Treasury 10a (nominal) e TIPS 10a (real) -- fonte: {' e '.join(fontes)}; "
+                      f"ultimo: UST {series['ust10'].iloc[-1]:.2f}% | "
+                      f"TIPS {s10.iloc[-1]:.2f}% em {s10.index[-1].date()}")
+    except Exception as exc:  # noqa: BLE001
+        st.detalhe = str(exc)[:400]
+        log.error("juros_fred falhou: %s", str(exc)[:300])
+    status.add(st)
+
+
+def _historia_longa(status: Status, out: pd.DataFrame) -> None:
+    """Onde o P/E e o CAPE de hoje caem na historia inteira da planilha Shiller.
+
+    O percentil de 10 anos do dashboard responde "caro em relacao a esta
+    decada". A decada de 2016-2026 e, ela propria, a segunda mais cara ja
+    registrada, e contra ela um P/E de 26x marca percentil 68 -- leitura que
+    induz a achar o nivel moderado. Aqui a comparacao e contra toda a serie
+    mensal disponivel (P/E desde 1871, CAPE desde 1881).
+
+    Ressalva que acompanha o numero, e nao fica em nota de rodape: 150 anos de
+    lucro nao sao homogeneos. Mudancas de norma contabil (baixas de goodwill a
+    partir de 2001, marcacao a mercado de participacoes a partir de 2018),
+    queda do payout e a composicao setorial movem o nivel "normal" do
+    multiplo. O percentil longo mede distancia da historia; nao prova que a
+    historia vai se repetir.
+    """
+    st = Stage("historia_longa_shiller")
+    try:
+        h = shiller.fetch_historico()
+        pe_hist = (h["preco"] / h["lucro_ttm"].where(h["lucro_ttm"] > 0)).dropna()
+        cape_hist = h["cape"].dropna()
+        res = {}
+        if "pe" in out.columns and out["pe"].notna().any():
+            res["pe"] = metrics.resumo_historico(pe_hist, float(out["pe"].dropna().iloc[-1]))
+            res["pe"]["data_atual"] = str(out["pe"].dropna().index[-1].date())
+        if "cape" in out.columns and out["cape"].notna().any():
+            res["cape"] = metrics.resumo_historico(cape_hist, float(out["cape"].dropna().iloc[-1]))
+            res["cape"]["data_atual"] = str(out["cape"].dropna().index[-1].date())
+        if "cape_yield_menos_real" in out.columns and out["cape_yield_menos_real"].notna().any():
+            s = out["cape_yield_menos_real"].dropna()
+            res["premio_cape"] = metrics.resumo_historico(s, float(s.iloc[-1]))
+            res["premio_cape"]["data_atual"] = str(s.index[-1].date())
+        status.historico_longo = res
+        st.ok, st.obs = True, int(len(pe_hist))
+        st.inicio, st.fim = str(pe_hist.index.min().date()), str(pe_hist.index.max().date())
+        partes = []
+        if "pe" in res:
+            partes.append(f"P/E {res['pe']['atual']:.1f} no percentil {res['pe']['percentil']:.0f} "
+                          f"desde {res['pe']['inicio'][:4]} (mediana {res['pe']['mediana']:.1f})")
+        if "cape" in res:
+            partes.append(f"CAPE {res['cape']['atual']:.1f} no percentil {res['cape']['percentil']:.0f} "
+                          f"desde {res['cape']['inicio'][:4]} (max {res['cape']['maximo']:.1f} "
+                          f"em {res['cape']['data_maximo'][:7]})")
+        st.detalhe = "; ".join(partes)
+    except Exception as exc:  # noqa: BLE001
+        st.detalhe = str(exc)[:400]
+        log.error("historia_longa_shiller falhou: %s", str(exc)[:300])
+    status.add(st)
 
 
 # ---------------------------------------------------------------------------
@@ -224,15 +330,19 @@ def build_ibov(status: Status):
     ano = datetime.now(timezone.utc).year
     st = Stage("lucros_cvm")
     lucros = pd.DataFrame()
+    acoes = pd.DataFrame()
     try:
         # ate ano+1: o exercicio corrente pode ja ter arquivo no portal, e
         # exclui-lo por convencao descartaria dado que existe.
-        dfp = cvm.fetch_range(range(2010, ano + 1), "DFP")
+        lista_acoes: list = []
+        dfp = cvm.fetch_range(range(2010, ano + 1), "DFP", acoes_out=lista_acoes)
         try:
-            itr = cvm.fetch_range(range(ano - 5, ano + 1), "ITR")
+            itr = cvm.fetch_range(range(ano - 5, ano + 1), "ITR", acoes_out=lista_acoes)
         except Exception as exc:  # noqa: BLE001
             itr = pd.DataFrame()
             status.avisos.append(f"ITR indisponivel; serie do IBOV fica so anual. {exc}")
+        acoes = pd.concat(lista_acoes, ignore_index=True) if lista_acoes else pd.DataFrame()
+        cvm.salvar_acoes(acoes)
         lucros = pd.concat([dfp, itr], ignore_index=True) if not itr.empty else dfp
         st.ok, st.obs = True, len(lucros)
         ausentes = list(dfp.attrs.get("anos_ausentes", []))
@@ -264,6 +374,7 @@ def build_ibov(status: Status):
         cache, meta = cvm.carregar_cache()
         if not cache.empty:
             lucros = cache
+            acoes = cvm.carregar_acoes()
             st.ok, st.obs = True, len(cache)
             idade = meta.get("idade_dias", "?")
             st.detalhe = (f"CACHE de {meta.get('coletado_em_utc', '?')} ({idade} dias); "
@@ -304,6 +415,12 @@ def build_ibov(status: Status):
     try:
         casadas, cobertura, rel = reconcile.conciliar(comp, empresas, lucros)
         status.conciliacao = rel
+        # A conciliacao ticker -> codigo CVM era calculada e descartada. Sem ela
+        # nao da para reproduzir o agregado fora do runner -- e reproduzir fora
+        # do runner foi exatamente o que permitiu achar o erro do 4T. Fica
+        # gravada ao lado da carteira.
+        if not casadas.empty:
+            casadas.to_csv(PROCESSED / "ibov_conciliacao.csv", index=False)
         st.ok, st.obs = True, len(casadas)
         st.detalhe = (f"{rel['ativos']} ativos; cobertura por peso = {cobertura:.1%}; "
                       f"{rel['por_codigo_cvm']} via codigo CVM, {rel['por_cnpj']} via CNPJ, "
@@ -369,26 +486,30 @@ def build_ibov(status: Status):
         peso_total = float(comp.get("participacao_pct", pd.Series(dtype=float)).sum()) \
             or sum(pesos.values()) or 1.0
 
-        lucro_diario_a, cob_a = metrics.soma_por_entidade(
-            sel[sel["freq"] == "A"], out.index, REPORTING_LAG_DAYS_PIT,
-            MAX_STALE_DAYS_LUCRO_ANUAL, pesos=pesos)
-        lucro_diario_t, cob_t = metrics.soma_por_entidade(
-            sel[sel["freq"] == "T"], out.index, REPORTING_LAG_DAYS_PIT,
-            MAX_STALE_DAYS_LUCRO_TRIMESTRAL, trimestral=True, pesos=pesos)
+        # Lucro de 12 meses por COMPANHIA, na melhor frequencia que cada uma
+        # tem: LTM trimestral (ITR + 4T derivado da DFP) onde os quatro
+        # trimestres existem, exercicio anual da DFP onde nao. Ate 09/2026 o
+        # pipeline montava um agregado so de ITR e outro so de DFP e escolhia um
+        # por data -- e o de ITR somava as quatro ultimas LINHAS do ITR, que
+        # nao tem 4T. Ver metrics.ttm_from_quarterly e metrics.soma_mista.
+        lucro_diario, cob, cob_tri = metrics.soma_mista(
+            sel, out.index, REPORTING_LAG_DAYS_PIT,
+            MAX_STALE_DAYS_LUCRO_ANUAL, MAX_STALE_DAYS_LUCRO_TRIMESTRAL, pesos=pesos,
+            lag_dezembro=REPORTING_LAG_DAYS_PIT_DEZEMBRO)
 
-        # Mesmo criterio do portao de cobertura, agora aplicado data a data em
-        # vez de uma vez so -- e na mesma unidade dele.
+        # Mesmo criterio do portao de cobertura, aplicado data a data, na mesma
+        # unidade dele.
         min_peso = COBERTURA_MINIMA_IBOV * peso_total
-        lucro_diario_a = lucro_diario_a.where(cob_a >= min_peso)
-        lucro_diario_t = lucro_diario_t.where(cob_t >= min_peso)
-
-        # O trimestral tem precedencia onde existe; o anual cobre o trecho antigo.
-        out["lucro_agregado"] = lucro_diario_t.combine_first(lucro_diario_a)
-        out["peso_coberto_pct"] = (np.where(lucro_diario_t.notna(), cob_t, cob_a)
-                                   / peso_total * 100.0)
-        out["freq_lucro"] = np.where(lucro_diario_t.notna(), "trimestral", "anual")
-        out.loc[out["lucro_agregado"].isna(), "freq_lucro"] = ""
-        out.loc[out["lucro_agregado"].isna(), "peso_coberto_pct"] = np.nan
+        out["lucro_agregado"] = lucro_diario.where(cob >= min_peso)
+        valido = out["lucro_agregado"].notna()
+        out["peso_coberto_pct"] = (cob / peso_total * 100.0).where(valido)
+        # Quanto do peso COBERTO vem de LTM trimestral. Substitui o rotulo
+        # binario anterior: com a escolha feita por companhia, uma data pode
+        # ter 90% do lucro trimestral e 10% anual, e o rotulo diria "trimestral"
+        # sem mencionar os 10%.
+        out["peso_trimestral_pct"] = (cob_tri / cob.where(cob > 0) * 100.0).where(valido)
+        out["freq_lucro"] = np.where(out["peso_trimestral_pct"] >= 50.0, "trimestral", "anual")
+        out.loc[~valido, "freq_lucro"] = ""
 
         # Ancoragem: o indice e o agregado tem escalas diferentes (o indice e uma
         # media ponderada com redutor; o agregado e lucro em BRL). A razao entre
@@ -413,7 +534,98 @@ def build_ibov(status: Status):
         st.detalhe = str(exc)
         log.error("pe_ibov falhou: %s", exc)
     status.add(st)
+
+    _pl_nivel(status, out, comp, casadas, lucros, acoes)
     return out, comp
+
+
+def _pl_nivel(status: Status, out: pd.DataFrame, comp: pd.DataFrame,
+              casadas: pd.DataFrame, lucros: pd.DataFrame, acoes: pd.DataFrame) -> None:
+    """P/L do Ibovespa em nivel, com a carteira vigente. Ver src/ibov_nivel.py."""
+    st = Stage("pl_ibov_nivel")
+    try:
+        if acoes is None or acoes.empty:
+            raise RuntimeError("sem numero de acoes da CVM (composicao do capital)")
+        cas = casadas.copy()
+        cas["cd_cvm"] = cas["cd_cvm"].map(reconcile.normalizar_cd_cvm)
+        cas = cas.merge(comp[["codigo", "qtd_teorica"]], on="codigo", how="left")
+        lu = lucros.copy()
+        lu["cd_cvm"] = lu["cd_cvm"].map(reconcile.normalizar_cd_cvm)
+        lu = lu[lu["cd_cvm"].isin(set(cas["cd_cvm"]))]
+        lu["cnpj"] = lu["cnpj"].fillna("").astype(str).replace("nan", "")
+        cnpj_por_cd = (lu[lu["cnpj"].str.len() > 0]
+                       .sort_values("data_fim").groupby("cd_cvm")["cnpj"].last().to_dict())
+        carteira = ibov_nivel.montar_carteira(cas, acoes, cnpj_por_cd)
+
+        lucro_emp = metrics.lucro_diario_por_empresa(
+            lu, out.index, REPORTING_LAG_DAYS_PIT, MAX_STALE_DAYS_LUCRO_ANUAL,
+            MAX_STALE_DAYS_LUCRO_TRIMESTRAL, lag_dezembro=REPORTING_LAG_DAYS_PIT_DEZEMBRO,
+            coluna="lucro_ctrl")
+
+        # Hoje, com o numerador da propria B3 (indice x redutor).
+        res = {}
+        redutor = comp.attrs.get("redutor")
+        data_cart = comp.attrs.get("data_carteira")
+        if redutor and data_cart:
+            ref = out["preco"].loc[:pd.Timestamp(data_cart) - pd.Timedelta(days=1)].dropna()
+            if not ref.empty:
+                d_ref = ref.index[-1]
+                lucro_hoje = lucro_emp.loc[d_ref].dropna()
+                r = ibov_nivel.pl_pelo_redutor(float(ref.iloc[-1]), float(redutor),
+                                               carteira, lucro_hoje)
+                tab = r.pop("tabela")
+                tab.sort_values("peso_pct", ascending=False).round(6).to_csv(
+                    PROCESSED / "ibov_pl_empresas.csv", index=False)
+                res.update({k: (round(float(v), 4) if isinstance(v, (int, float, np.floating)) else v)
+                            for k, v in r.items()})
+                res.update({"data": str(d_ref.date()), "data_carteira": data_cart,
+                            "indice": float(ref.iloc[-1]), "redutor": float(redutor)})
+
+        # Serie historica: soma(q x P) com o preco de cada papel.
+        try:
+            precos = ativos.fetch_ativos(sorted(cas["codigo"].astype(str).unique()))
+            serie = ibov_nivel.serie_pl(precos, cas, carteira, lucro_emp,
+                                        minimo=COBERTURA_MINIMA_IBOV)
+            out["pl_nivel"] = serie["pl"]
+            out["pl_nivel_cobertura_pct"] = serie["cobertura_pct"].where(serie["pl"].notna())
+            out["pl_nivel_pct"] = metrics.rolling_percentile(out["pl_nivel"], STAT_WINDOW)
+            out["pl_nivel_z"] = metrics.rolling_zscore(out["pl_nivel"], STAT_WINDOW)
+            sem_preco = sorted(set(cas["codigo"]) - set(precos.columns))
+            valida = serie["pl"].dropna()
+            res.update({"serie_inicio": str(valida.index.min().date()) if len(valida) else "",
+                        "serie_fim": str(valida.index.max().date()) if len(valida) else "",
+                        "serie_ultimo": round(float(valida.iloc[-1]), 3) if len(valida) else None,
+                        "papeis_sem_preco": sem_preco})
+            if res.get("data") and pd.Timestamp(res["data"]) in serie.index:
+                v_yf = serie.loc[pd.Timestamp(res["data"]), "valor_carteira"]
+                if np.isfinite(v_yf) and res.get("valor_coberto"):
+                    # As duas medidas do numerador, para o mesmo conjunto de companhias.
+                    res["checagem_numerador_pct"] = round(
+                        (float(v_yf) / float(res["valor_coberto"]) - 1.0) * 100.0, 2)
+        except Exception as exc:  # noqa: BLE001
+            res["serie_erro"] = str(exc)[:300]
+            log.error("serie do P/L em nivel falhou: %s", str(exc)[:300])
+
+        excl = carteira[~np.isfinite(carteira["f"])]
+        res["excluidas"] = [f"{r.codigos}: {r.motivo_exclusao}" for r in excl.itertuples()]
+        res["peso_excluido_pct"] = round(float(excl["peso_pct"].sum()), 3)
+        status.pl_ibov = res
+        if not res.get("pl") and not res.get("serie_ultimo"):
+            raise RuntimeError(f"nenhuma medida de P/L produzida: {res}")
+        st.ok = True
+        st.obs = int(out["pl_nivel"].notna().sum()) if "pl_nivel" in out.columns else 0
+        st.detalhe = (f"P/L 12m {res.get('pl', float('nan')):.2f}x em {res.get('data', '?')} "
+                      f"(indice x redutor; cobertura {res.get('cobertura_pct', 0):.1f}% do peso)"
+                      + (f"; serie por papel {res['serie_inicio']}..{res['serie_fim']}, ultimo "
+                         f"{res['serie_ultimo']:.2f}x" if res.get("serie_ultimo") else "")
+                      + (f"; numerador por papel x B3: {res['checagem_numerador_pct']:+.2f}%"
+                         if "checagem_numerador_pct" in res else "")
+                      + (f"; excluidas {len(res['excluidas'])} ({res['peso_excluido_pct']:.1f}% do peso)"
+                         if res["excluidas"] else ""))
+    except Exception as exc:  # noqa: BLE001
+        st.detalhe = str(exc)[:400]
+        log.error("pl_ibov_nivel falhou: %s", str(exc)[:300])
+    status.add(st)
 
 
 # ---------------------------------------------------------------------------
