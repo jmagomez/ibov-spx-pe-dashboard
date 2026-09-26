@@ -99,10 +99,12 @@ def coletar(spx: pd.DataFrame, ibov: pd.DataFrame, status: dict) -> dict:
         "spx_cape": ("S&P 500 - CAPE", "", ultimo(spx, "cape", referencia)),
         "spx_ey": ("S&P 500 - earnings yield", "%", ultimo(spx, "earnings_yield", referencia)),
         "spx_pct": ("S&P 500 - percentil do P/E (10a)", "", ultimo(spx, "pe_pct", referencia)),
-        "ibov_val": ("Ibovespa - indice de valuation (base 100)", "",
+        "ibov_pl": ("Ibovespa - P/L 12m da carteira atual", "x",
+                    ultimo(ibov, "pl_nivel", referencia)),
+        "ibov_pl_pct": ("Ibovespa - percentil do P/L (10a)", "",
+                        ultimo(ibov, "pl_nivel_pct", referencia)),
+        "ibov_val": ("Ibovespa - indice de valuation (base 100, serie anterior)", "",
                      ultimo(ibov, "valuation_idx", referencia)),
-        "ibov_pct": ("Ibovespa - percentil do indicador (10a)", "",
-                     ultimo(ibov, "valuation_pct", referencia)),
         "spx_eps_yoy": ("S&P 500 - LPA 12m, variacao a/a", "%",
                         ultimo(spx, "eps_yoy_pct", referencia)),
         "spx_ey_real": ("S&P 500 - earnings yield menos juro real 10a", " pp",
@@ -146,14 +148,16 @@ def _sinal(m: dict | None) -> str:
 
 def estado_atual(d: dict) -> dict:
     def _pct(chave):
-        m = d["metricas"][chave][2]
+        m = d["metricas"].get(chave, (None, None, None))[2]
         return m["valor"] if m else None
     return {
         "referencia_iso": d["referencia_iso"],
         "estagios": d["estagios"],
         "vencidas": d["vencidas"],
         "faixa_spx": _faixa(_pct("spx_pct")),
-        "faixa_ibov": _faixa(_pct("ibov_pct")),
+        # O percentil do P/L em nivel substitui o do indice base 100 quando existe.
+        "faixa_ibov": _faixa(_pct("ibov_pl_pct") if _pct("ibov_pl_pct") is not None
+                             else _pct("ibov_pct")),
         "sinal_premio_cape": _sinal(d["metricas"].get("spx_cape_real", (None, None, None))[2]),
         "series_vazias": sorted(k for k, (_, _, m) in d["metricas"].items() if m is None),
     }
@@ -241,8 +245,10 @@ def assunto(d: dict, muds: list[str]) -> str:
     recente vira "sem lastro" em vez de virar um valor de dois anos atras.
     """
     partes = []
-    for chave, rotulo in (("spx_pe", "S&P P/E"), ("ibov_val", "IBOV val")):
-        m = d["metricas"][chave][2]
+    ibov = (("ibov_pl", "IBOV P/L") if d["metricas"].get("ibov_pl", (0, 0, None))[2]
+            else ("ibov_val", "IBOV val"))
+    for chave, rotulo in (("spx_pe", "S&P P/E"), ibov):
+        m = d["metricas"].get(chave, (None, None, None))[2]
         if not m:
             partes.append(f"{rotulo} indisponivel")
         elif m["vencido"]:
@@ -298,8 +304,9 @@ def texto(d: dict, muds: list[str]) -> str:
         L += [f"  - {a}" for a in d["avisos"]]
     L += ["", f"Dashboard: {DASHBOARD_URL}", f"Repositorio: {REPO_URL}", "",
           "Material informativo. Nao e recomendacao de investimento.",
-          "As duas series nao sao comparaveis em nivel - so em posicao relativa",
-          "a propria historia. Ver LIMITACOES.md."]
+          "O P/L do Ibovespa e o da carteira atual (vies de sobrevivencia no historico).",
+          "Comparar os dois indices em nivel e fragil: setores, contabilidade e moeda",
+          "explicam boa parte da diferenca. Ver LIMITACOES.md."]
     return "\n".join(L)
 
 
@@ -388,10 +395,11 @@ def html(d: dict, muds: list[str]) -> str:
          padding:10px 18px;border-radius:5px;font-size:14px;display:inline-block">
          Abrir o dashboard</a></p>
     <p style="font-size:12px;color:#6E8087;margin:16px 0 0;line-height:1.6">
-      As duas series nao sao comparaveis em nivel: o S&amp;P 500 tem P/E verdadeiro e o
-      Ibovespa tem um indicador normalizado de base 100. O que se compara e a posicao de
-      cada um na propria historia. Material informativo; nao e recomendacao de
-      investimento. <a href="{REPO_URL}" style="color:#065A82">Metodologia e limitacoes</a>.
+      O P/L do Ibovespa e o da carteira atual da B3 (quantidade teorica x preco sobre o
+      lucro de 12 meses de cada companhia, na fracao que o indice carrega); o historico e o
+      que esta carteira teria tido. Comparar os dois indices em nivel e fragil: setores,
+      contabilidade e moeda explicam boa parte da diferenca. Material informativo; nao e
+      recomendacao de investimento. <a href="{REPO_URL}" style="color:#065A82">Metodologia e limitacoes</a>.
     </p>
   </div>
 </div></body></html>"""
