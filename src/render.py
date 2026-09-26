@@ -60,6 +60,12 @@ def main() -> int:
         "ibov_pct": _serie(ibov, "valuation_pct"),
         "ibov_preco": _serie(ibov, "preco"),
         "spx_preco": _serie(spx, "preco"),
+        "ust10": _serie(spx, "ust10"),
+        "tips10": _serie(spx, "tips10"),
+        "cape_yield": _serie(spx, "cape_yield"),
+        "ey_menos_real": _serie(spx, "ey_menos_real"),
+        "cape_yield_menos_real": _serie(spx, "cape_yield_menos_real"),
+        "eps_yoy": _serie(spx, "eps_yoy_pct"),
     }
 
     def _ult(df: pd.DataFrame, col: str):
@@ -100,6 +106,9 @@ def main() -> int:
         "spx_pct": _ult(spx, "pe_pct"),
         "ibov_val": _ult(ibov, "valuation_idx"),
         "ibov_pct": _ult(ibov, "valuation_pct"),
+        "eps_yoy": _ult(spx, "eps_yoy_pct"),
+        "ey_menos_real": _ult(spx, "ey_menos_real"),
+        "cape_yield_menos_real": _ult(spx, "cape_yield_menos_real"),
     }
 
     comp_rows = []
@@ -195,8 +204,10 @@ code{background:var(--tint);padding:1px 5px;border-radius:3px;font-size:12.5px}
 
 <div class="alert">
   <b>Leia antes de usar.</b> As duas series nao sao diretamente comparaveis em nivel.
-  O S&amp;P 500 tem P/E em nivel verdadeiro, calculado com o LPA do indice publicado pela propria
-  S&amp;P Dow Jones Indices. O Ibovespa nao tem equivalente gratuito: o que se mostra e um
+  O S&amp;P 500 tem P/E em nivel verdadeiro, calculado com o LPA contabil (GAAP, "as reported") do
+  indice: o da S&amp;P Dow Jones Indices quando ela responde, e o da planilha de Shiller -- mesma
+  linhagem -- quando nao; o painel de diagnostico diz qual foi usado. O Ibovespa nao tem
+  equivalente gratuito: o que se mostra e um
   <i>indice de valuation normalizado (base 100)</i>, construido com a carteira vigente e lucros da CVM,
   sujeito a vies de sobrevivencia. Comparar as duas linhas em nivel e um erro de leitura.
   Ver <code>METODOLOGIA.md</code> e <code>LIMITACOES.md</code>.
@@ -208,9 +219,14 @@ code{background:var(--tint);padding:1px 5px;border-radius:3px;font-size:12.5px}
 <h2>S&amp;P 500 - P/E em nivel</h2>
 <div class="chartbox">
   <h3>P/E trailing 12 meses</h3>
-  <p class="sub">Preco de fechamento dividido pelo LPA as-reported acumulado em 12 meses (S&amp;P DJI).
+  <p class="sub">Preco de fechamento dividido pelo LPA contabil (GAAP) acumulado em 12 meses.
      A linha tracejada aplica defasagem de 75 dias entre o fim do trimestre e a data em que o lucro
-     era efetivamente conhecido - a diferenca entre as duas e o quanto a convencao de indice antecipa informacao.</p>
+     era efetivamente conhecido - a diferenca entre as duas e o quanto a convencao de indice antecipa informacao.
+     <b>Nao e o P/E que a imprensa cita.</b> O numero de manchete costuma ser o P/E <i>projetado</i>
+     (preco sobre o lucro esperado para os proximos 12 meses), mais baixo sempre que se espera
+     crescimento de lucro. E o LPA GAAP inclui itens nao recorrentes: quando eles sao ganhos -- como a
+     marcacao a mercado de participacoes em empresas de IA em 2025-26 --, o P/E daqui fica
+     <i>abaixo</i> do que seria sobre lucro recorrente. Ver <code>LIMITACOES.md</code>, secao 9.</p>
   <div id="w-spxpe"><canvas id="c-spxpe"></canvas></div>
 </div>
 <div class="grid2">
@@ -233,6 +249,36 @@ code{background:var(--tint);padding:1px 5px;border-radius:3px;font-size:12.5px}
      posicao relativa ao proprio historico diz mais - e ainda assim nao e sinal de compra ou venda.</p>
   <div id="w-pct"><canvas id="c-pct"></canvas></div>
 </div>
+
+<h2>Caro em relacao a que? O rendimento do lucro contra os juros</h2>
+<div class="chartbox">
+  <h3>Rendimento do lucro (1/P/E e 1/CAPE) e juros de 10 anos dos EUA, % a.a.</h3>
+  <p class="sub">O lucro de uma empresa cresce com a inflacao; por isso o comparavel ao rendimento
+     do lucro e o juro <i>real</i> (TIPS), e nao o nominal. Quando 1/CAPE - o rendimento do lucro
+     medio de 10 anos - fica abaixo do TIPS, o investidor recebe menos de lucro normalizado por
+     dolar aplicado em acoes do que recebe, sem risco de credito e protegido da inflacao, em
+     titulo do Tesouro. Fonte dos juros: FRED (DGS10 e DFII10).</p>
+  <div id="w-juros"><canvas id="c-juros"></canvas></div>
+</div>
+<div class="chartbox">
+  <h3>Premio do rendimento do lucro sobre o juro real de 10 anos, pontos percentuais</h3>
+  <p class="sub">Proxy grosseira do premio de risco de acoes: nao desconta crescimento esperado nem
+     recompras, e usa lucro contabil. Serve para ler <b>direcao e nivel relativo</b>. Abaixo de
+     zero, o lucro normalizado rende menos que o titulo real sem risco. A posicao do valor atual
+     dentro da propria serie (desde 2010) esta na tabela de historia longa, logo abaixo.</p>
+  <div id="w-premio"><canvas id="c-premio"></canvas></div>
+</div>
+
+<h2>Posicao na historia longa (planilha de Shiller)</h2>
+<p style="font-size:13.5px;color:var(--gray);margin-top:-4px">
+  O percentil dos cartoes e dos graficos acima e medido contra os ultimos 10 anos - uma decada
+  que foi, ela propria, das mais caras ja registradas. Esta tabela mede contra toda a historia
+  disponivel. 150 anos de lucro nao sao homogeneos (norma contabil, payout, setores mudaram), entao
+  o percentil longo mede distancia da historia; nao prova reversao a ela.</p>
+<table id="t-hist"><thead><tr>
+  <th>Metrica</th><th class="num">Atual</th><th class="num">Percentil</th><th class="num">Mediana</th>
+  <th class="num">Faixa p10-p90</th><th class="num">Maximo</th><th>Serie</th>
+</tr></thead><tbody></tbody></table>
 
 <h2>Ibovespa - indice de valuation (base 100)</h2>
 <div class="chartbox">
@@ -376,7 +422,19 @@ const defs = [
   ['spx_pct','S&P 500 - Percentil do P/E',''],
   ['ibov_val','Ibovespa - Indice de valuation',''],
   ['ibov_pct','Ibovespa - Percentil',''],
+  ['eps_yoy','S&P 500 - LPA 12m, variacao a/a','%'],
+  ['ey_menos_real','Earnings yield - juro real 10a',' pp'],
+  ['cape_yield_menos_real','1/CAPE - juro real 10a',' pp'],
 ];
+// Sinais que o numero sozinho nao mostra. Nao sao alarme de compra/venda:
+// sao avisos de LEITURA.
+function aviso_cartao(k, v){
+  if (k === 'eps_yoy' && Math.abs(v.valor) >= 20)
+    return 'variacao atipica do lucro: conferir itens nao recorrentes';
+  if ((k === 'ey_menos_real' || k === 'cape_yield_menos_real') && v.valor < 0)
+    return 'lucro rende menos que o titulo real sem risco';
+  return '';
+}
 function deltaHtml(v){
   if (v.delta === null || v.delta === undefined) return '';
   const cls = v.delta > 0 ? 'up' : (v.delta < 0 ? 'down' : 'flat');
@@ -401,6 +459,7 @@ document.getElementById('cards').innerHTML = defs.map(function(d){
     '<div class="val">'+v.valor+suf+deltaHtml(v)+'</div>' +
     '<div class="dt">em '+v.data+' &middot; vs. anterior</div>' +
     (v.vencido ? '<div class="stale-tag">sem atualizacao ha '+v.idade_dias+' dias</div>' : '') +
+    (aviso_cartao(k, v) ? '<div class="stale-tag">'+aviso_cartao(k, v)+'</div>' : '') +
     '</div>';
 }).join('');
 
@@ -414,6 +473,16 @@ linha('c-ey','w-ey',[{label:'Earnings yield', data:DADOS.spx_ey, cor:c('--teal')
 linha('c-pct','w-pct',[
   {label:'Percentil do P/E (0-100)', data:DADOS.spx_pct, cor:c('--deep'), w:1.8},
 ], {y:'percentil'});
+linha('c-juros','w-juros',[
+  {label:'Earnings yield (1/P/E)', data:DADOS.spx_ey, cor:c('--teal'), w:1.6},
+  {label:'Rendimento do CAPE (1/CAPE)', data:DADOS.cape_yield, cor:c('--navy2'), w:1.8},
+  {label:'TIPS 10a (juro real)', data:DADOS.tips10, cor:c('--bad'), w:1.6},
+  {label:'Treasury 10a (nominal)', data:DADOS.ust10, cor:c('--gray'), w:1.2, dash:[5,4]},
+], {y:'% a.a.'});
+linha('c-premio','w-premio',[
+  {label:'Earnings yield - TIPS 10a', data:DADOS.ey_menos_real, cor:c('--teal'), w:1.6},
+  {label:'1/CAPE - TIPS 10a', data:DADOS.cape_yield_menos_real, cor:c('--navy2'), w:1.8},
+], {y:'pontos percentuais'});
 linha('c-ibov','w-ibov',[
   {label:'Ibovespa - indice de valuation (base 100)', data:DADOS.ibov_val, cor:c('--gold'), w:1.8},
 ], {y:'base 100'});
@@ -436,6 +505,30 @@ const tb = document.querySelector('#t-status tbody');
     '<td style="font-size:12px;color:var(--gray)">'+(e.detalhe||'')+'</td>';
   tb.appendChild(tr);
 });
+const th = document.querySelector('#t-hist tbody');
+const HL = STATUS.historico_longo || {};
+const rotHL = {pe:'S&P 500 - P/E trailing (GAAP)', cape:'S&P 500 - CAPE',
+               premio_cape:'1/CAPE - TIPS 10a, pp (aqui, percentil BAIXO = acoes caras)'};
+const linhasHL = ['pe','cape','premio_cape'].filter(function(k){ return HL[k]; });
+if (linhasHL.length){
+  linhasHL.forEach(function(k){
+    const h = HL[k];
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td>'+rotHL[k]+'</td>' +
+      '<td class="num"><b>'+h.atual.toFixed(2)+'</b></td>' +
+      '<td class="num"><b>'+h.percentil.toFixed(1)+'</b></td>' +
+      '<td class="num">'+h.mediana.toFixed(2)+'</td>' +
+      '<td class="num">'+h.p10.toFixed(1)+' - '+h.p90.toFixed(1)+'</td>' +
+      '<td class="num">'+h.maximo.toFixed(2)+' ('+h.data_maximo.slice(0,7)+')</td>' +
+      '<td style="font-size:12px;color:var(--gray)">'+h.inicio.slice(0,7)+' a '+h.fim.slice(0,7)+
+        ', '+h.n+' obs.; '+h.acima_do_atual+' acima do atual</td>';
+    th.appendChild(tr);
+  });
+} else {
+  th.innerHTML = '<tr><td colspan="7" class="empty">Historia longa indisponivel nesta execucao ' +
+    '(ver estagio historia_longa_shiller no diagnostico).</td></tr>';
+}
+
 const tv = document.querySelector('#t-vig tbody');
 const vigs = STATUS.vigencias || [];
 if (vigs.length){
