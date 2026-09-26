@@ -91,6 +91,17 @@ def main() -> int:
         d["pe_pct"] = metrics.rolling_percentile(d["pe"], STAT_WINDOW)
     if "eps_ttm_pit" in d.columns:
         d["pe_pit"] = metrics.pe_ratio(d["preco"], d["eps_ttm_pit"])
+    # Idem para o que descende do earnings yield e do CAPE: sem isto, um
+    # truncamento aqui deixaria os premios sobre juro calculados com o LPA de
+    # antes do reparo.
+    if "tips10" in d.columns and "earnings_yield" in d.columns:
+        d["ey_menos_real"] = metrics.premio_sobre_juro(d["earnings_yield"], d["tips10"])
+    if "ust10" in d.columns and "earnings_yield" in d.columns:
+        d["ey_menos_nominal"] = metrics.premio_sobre_juro(d["earnings_yield"], d["ust10"])
+    if "cape" in d.columns and "cape_yield" in d.columns:
+        d["cape_yield"] = 100.0 / d["cape"].where(d["cape"] > 0)
+        if "tips10" in d.columns:
+            d["cape_yield_menos_real"] = metrics.premio_sobre_juro(d["cape_yield"], d["tips10"])
 
     d.round(6).to_csv(p, index_label="data")
 
@@ -99,10 +110,17 @@ def main() -> int:
     if sp.exists():
         st = json.loads(sp.read_text(encoding="utf-8"))
         st["reparo_validade"] = rel
-        st.setdefault("avisos", []).append(
-            "Teto de validade aplicado retroativamente aos dados de 08/08/2026: o LPA "
-            "estava repetido desde 03/06/2024 e inflava o P/E do trecho final. O trecho "
-            "sem lastro foi esvaziado, nao corrigido por estimativa.")
+        # O aviso so entra quando o reparo de fato removeu algo. Ate 26/09/2026
+        # ele era anexado em TODA execucao, inclusive nas que nao mexiam em nada,
+        # e aparecia todo dia no resumo por e-mail descrevendo um reparo de
+        # 08/08/2026 como se estivesse acontecendo agora.
+        removeu = any(int(v.get("pregoes_removidos", 0) or 0) > 0 for v in rel.values()
+                      if isinstance(v, dict)) or "cape_implausivel" in rel
+        if removeu:
+            st.setdefault("avisos", []).append(
+                "Teto de validade aplicado aos dados em disco: havia trecho de LPA ou "
+                "CAPE sem lastro, que foi esvaziado e nao corrigido por estimativa. "
+                "Detalhe em status.json, campo reparo_validade.")
         sp.write_text(json.dumps(st, ensure_ascii=False, indent=2), encoding="utf-8")
 
     for k, v in rel.items():
