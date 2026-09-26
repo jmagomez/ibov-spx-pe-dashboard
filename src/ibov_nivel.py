@@ -5,10 +5,10 @@ normalizado (base 100): preco do indice sobre a SOMA do lucro total das
 companhias. Tres defeitos, todos corrigidos aqui:
 
   1. Lucro total nao e o lucro da carteira. O indice carrega uma FRACAO de
-     cada companhia (a quantidade teorica, que segue o free float). Somar o
-     lucro inteiro da Petrobras, com ~37% dela no indice, pesa a Petrobras
-     mais do que o indice pesa. Aqui cada companhia entra com
-     f = quantidade teorica / acoes em circulacao.
+     cada companhia (a quantidade teorica). Somar o lucro inteiro da
+     Petrobras, com 53% dela no indice (09/2026), ou o do Santander, com 10%,
+     pesa essas companhias mais do que o indice pesa. Aqui cada companhia entra
+     com f = quantidade teorica / acoes em circulacao.
   2. Holding e controlada no indice (Itausa e Itau, Bradespar e Vale,
      Metalurgica Gerdau e Gerdau, Cosan e Rumo). Com a ponderacao por f, isso
      deixa de ser dupla contagem e passa a ser exatamente o que o indice e:
@@ -106,7 +106,11 @@ def fracao_na_carteira(q_acoes: float, n_bruto: float) -> tuple[float, float | N
     for escala in (1.0, 1_000.0):
         f = q_acoes / (n_bruto * escala)
         if F_MIN <= f <= F_MAX:
-            return float(min(f, 1.0)), escala
+            # Sem truncar em 1: q/N um pouco acima de 1 acontece quando o numero
+            # de acoes da CVM (fim do trimestre) e anterior a uma emissao ja
+            # refletida na quantidade teorica (Lojas Renner, 1,015 em 09/2026).
+            # A identidade q x LPA = (q/N) x L vale com o q/N que existe.
+            return float(f), escala
     return np.nan, None
 
 
