@@ -1,5 +1,5 @@
 {
-  "gerado_em_utc": "2026-09-26T15:42:23+00:00",
+  "gerado_em_utc": "2026-09-26T23:38:23+00:00",
   "estagios": [
     {
       "nome": "precos_spx",
@@ -26,6 +26,22 @@
       "fim": "2026-09-01"
     },
     {
+      "nome": "juros_fred",
+      "ok": true,
+      "detalhe": "Treasury 10a (nominal) e TIPS 10a (real) -- fonte: Tesouro dos EUA (home.treasury.gov); ultimo: UST 5.17% | TIPS 2.83% em 2026-09-25",
+      "obs": 4186,
+      "inicio": "2010-01-04",
+      "fim": "2026-09-25"
+    },
+    {
+      "nome": "historia_longa_shiller",
+      "ok": true,
+      "detalhe": "P/E 26.2 no percentil 93 desde 1871 (mediana 15.1); CAPE 40.6 no percentil 99 desde 1881 (max 44.2 em 1999-12)",
+      "obs": 1866,
+      "inicio": "1871-01-01",
+      "fim": "2026-06-01"
+    },
+    {
       "nome": "precos_ibov",
       "ok": true,
       "detalhe": "provedor: yfinance; horizonte: 16.7 anos (4149 pregoes)",
@@ -44,7 +60,7 @@
     {
       "nome": "lucros_cvm",
       "ok": true,
-      "detalhe": "DFP 2010-12-31..2026-06-30 | ITR 2021-03-31..2026-06-30",
+      "detalhe": "CACHE de 2026-09-26T15:43:57+00:00 (0 dias); 2010-12-31..2026-06-30. CVM indisponivel agora: nenhum ano de DFP obtido. nao publicados: []; erros: 2010: https://dados.cvm.gov.br/dados/CIA_ABERTA/DOC/DFP/DADOS/dfp_cia_aberta_2010.zip -> SourceUnavailable: https://dados.cvm. | 2011: https://dados.cvm.gov.br/dados/C",
       "obs": 14010,
       "inicio": "",
       "fim": ""
@@ -68,21 +84,29 @@
     {
       "nome": "pe_ibov",
       "ok": true,
-      "detalhe": "cobertura da carteira 100.0%; 2261 linhas de lucro de 74 companhias; exigido >= 80% do PESO em cada data (coberto: min 85.5%, mediana 95.8%); indicador normalizado (base 100), NAO e P/E em nivel -- ver METODOLOGIA.md secao 4",
-      "obs": 3853,
+      "detalhe": "cobertura da carteira 100.0%; 2261 linhas de lucro de 74 companhias; exigido >= 80% do PESO em cada data (coberto: min 86.1%, mediana 96.3%); indicador normalizado (base 100), NAO e P/E em nivel -- ver METODOLOGIA.md secao 4",
+      "obs": 3840,
+      "inicio": "",
+      "fim": ""
+    },
+    {
+      "nome": "pl_ibov_nivel",
+      "ok": false,
+      "detalhe": "sem numero de acoes da CVM (composicao do capital)",
+      "obs": 0,
       "inicio": "",
       "fim": ""
     }
   ],
   "avisos": [
-    "5 CNPJ(s) apontam para mais de um codigo CVM e foram RECUSADOS em vez de desempatados por criterio arbitrario.",
-    "Teto de validade aplicado retroativamente aos dados de 08/08/2026: o LPA estava repetido desde 03/06/2024 e inflava o P/E do trecho final. O trecho sem lastro foi esvaziado, nao corrigido por estimativa."
+    "Lucros da CVM vindos do CACHE local, coletado ha 0 dias. Sao numeros de uma coleta real anterior, nao estimativas -- mas exercicios divulgados depois dessa data NAO estao aqui.",
+    "5 CNPJ(s) apontam para mais de um codigo CVM e foram RECUSADOS em vez de desempatados por criterio arbitrario."
   ],
   "vigencias": [
     {
       "fonte": "eps_spx",
       "ultima_observacao": "2026-06-01",
-      "vigente_ate": "2026-09-29",
+      "vigente_ate": "2026-12-28",
       "defasagem_dias": 116,
       "vencida": false
     },
@@ -91,6 +115,20 @@
       "ultima_observacao": "2026-09-01",
       "vigente_ate": "2026-12-30",
       "defasagem_dias": 24,
+      "vencida": false
+    },
+    {
+      "fonte": "ust10",
+      "ultima_observacao": "2026-09-25",
+      "vigente_ate": "2026-10-05",
+      "defasagem_dias": 0,
+      "vencida": false
+    },
+    {
+      "fonte": "tips10",
+      "ultima_observacao": "2026-09-25",
+      "vigente_ate": "2026-10-05",
+      "defasagem_dias": 0,
       "vencida": false
     }
   ],
@@ -141,15 +179,63 @@
     "ativos": "76/76"
   },
   "dfp_ausentes": [],
+  "historico_longo": {
+    "pe": {
+      "atual": 26.21,
+      "percentil": 93.4,
+      "mediana": 15.08,
+      "media": 16.22,
+      "p10": 9.21,
+      "p90": 23.61,
+      "maximo": 123.73,
+      "data_maximo": "2009-05-01",
+      "inicio": "1871-01-01",
+      "fim": "2026-06-01",
+      "n": 1866,
+      "acima_do_atual": 124,
+      "data_atual": "2026-09-25"
+    },
+    "cape": {
+      "atual": 40.58,
+      "percentil": 98.9,
+      "mediana": 16.61,
+      "media": 17.79,
+      "p10": 9.31,
+      "p90": 28.3,
+      "maximo": 44.2,
+      "data_maximo": "1999-12-01",
+      "inicio": "1881-01-01",
+      "fim": "2026-09-01",
+      "n": 1749,
+      "acima_do_atual": 20,
+      "data_atual": "2026-09-25"
+    },
+    "premio_cape": {
+      "atual": -0.37,
+      "percentil": 0.0,
+      "mediana": 3.3,
+      "media": 2.99,
+      "p10": 0.81,
+      "p90": 4.72,
+      "maximo": 5.64,
+      "data_maximo": "2012-11-08",
+      "inicio": "2010-01-04",
+      "fim": "2026-09-25",
+      "n": 4208,
+      "acima_do_atual": 4206,
+      "data_atual": "2026-09-25"
+    }
+  },
+  "pl_ibov": {},
   "reparo_validade": {
     "eps_ttm": {
       "ultima_mudanca": "2026-06-01",
-      "vigente_ate": "2026-09-29",
+      "vigente_ate": "2026-12-28",
       "pregoes_removidos": 0
     },
     "eps_ttm_pit": {
       "ultima_mudanca": "2026-08-17",
-      "vigente_ate": "2026-12-15",
+      "vigente_ate": "2027-03-15",
       "pregoes_removidos": 0
     },
     "cape": {
