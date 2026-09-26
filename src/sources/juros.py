@@ -17,10 +17,14 @@ e ela e descartada, nunca preenchida.
 """
 from __future__ import annotations
 
+import io
 import logging
+import re
+from datetime import datetime, timezone
 
 import pandas as pd
 
+from ..config import START_DATE
 from .http import SourceUnavailable, get
 from .prices import FRED_CSV, _BROWSER_HEADERS, _parse_fred_csv
 
@@ -37,20 +41,79 @@ SERIES = {
 FAIXA_PLAUSIVEL = (-3.0, 20.0)
 
 
-def fetch_serie(nome: str) -> pd.Series:
-    """Serie diaria em % a.a. Levanta SourceUnavailable se nada utilizavel vier."""
+# Reserva: o proprio Tesouro americano publica as curvas diarias, nominal e real,
+# em CSV por ano. Na execucao de 26/09/2026 o FRED deu ReadTimeout tres vezes a
+# partir do runner, e o estagio de juros inteiro ficou vazio.
+TREASURY_CSV = ("https://home.treasury.gov/resource-center/data-chart-center/"
+                "interest-rates/daily-treasury-rates.csv/{ano}/all?type={tipo}"
+                "&field_tdr_date_value={ano}&page&_format=csv")
+TREASURY_TIPO = {"ust10": "daily_treasury_yield_curve",
+                 "tips10": "daily_treasury_real_yield_curve"}
+
+
+def _parse_treasury_csv(texto: str) -> pd.Series:
+    """Coluna de 10 anos ("10 Yr" na nominal, "10 YR" na real) do CSV do Tesouro."""
+    df = pd.read_csv(io.StringIO(texto))
+    col = next((c for c in df.columns if re.fullmatch(r"\s*10\s*yr?s?\s*", str(c), re.I)), None)
+    if col is None or "Date" not in df.columns:
+        raise SourceUnavailable(f"CSV do Tesouro sem coluna de 10 anos: {list(df.columns)[:8]}")
+    idx = pd.to_datetime(df["Date"], format="%m/%d/%Y", errors="coerce")
+    s = pd.Series(pd.to_numeric(df[col], errors="coerce").values, index=idx)
+    s = s[~s.index.isna()].dropna()
+    return s[~s.index.duplicated(keep="last")].sort_index()
+
+
+def _via_treasury(nome: str) -> pd.Series:
+    ano_fim = datetime.now(timezone.utc).year
+    partes, erros = [], []
+    for ano in range(int(START_DATE[:4]), ano_fim + 1):
+        try:
+            raw = get(TREASURY_CSV.format(ano=ano, tipo=TREASURY_TIPO[nome]),
+                      headers=_BROWSER_HEADERS, retries=2, timeout=40)
+            partes.append(_parse_treasury_csv(raw.decode("utf-8", errors="replace")))
+        except Exception as exc:  # noqa: BLE001
+            erros.append(f"{ano}: {str(exc)[:80]}")
+    if not partes or partes[-1].empty:
+        raise SourceUnavailable(f"Tesouro {nome}: sem o ano corrente. {' | '.join(erros[:3])}")
+    s = pd.concat(partes).sort_index()
+    s.attrs["fonte"] = "Tesouro dos EUA (home.treasury.gov)"
+    if erros:
+        s.attrs["anos_faltando"] = erros
+    return s[~s.index.duplicated(keep="last")]
+
+
+def _via_fred(nome: str) -> pd.Series:
     series_id = SERIES[nome]
-    raw = get(FRED_CSV.format(series=series_id), headers=_BROWSER_HEADERS)
+    url = FRED_CSV.format(series=series_id) + f"&cosd={START_DATE}"
+    raw = get(url, headers=_BROWSER_HEADERS, retries=2, timeout=30)
     s = _parse_fred_csv(raw.decode("utf-8", errors="replace"), series_id)
+    s.attrs["fonte"] = f"FRED {series_id}"
+    return s
+
+
+def fetch_serie(nome: str) -> pd.Series:
+    """Serie diaria em % a.a. Levanta SourceUnavailable se nada utilizavel vier.
+
+    FRED primeiro; o CSV do Tesouro, que e a fonte primaria do proprio FRED para
+    estas series, como reserva. O atributo `fonte` diz qual respondeu.
+    """
+    series_id = SERIES[nome]
+    try:
+        s = _via_fred(nome)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("FRED %s indisponivel (%s); tentando o Tesouro", series_id, str(exc)[:120])
+        s = _via_treasury(nome)
     if s.empty:
-        raise SourceUnavailable(f"FRED {series_id}: serie vazia")
+        raise SourceUnavailable(f"{series_id}: serie vazia")
     lo, hi = FAIXA_PLAUSIVEL
     fora = s[(s < lo) | (s > hi)]
     if len(fora) > 0.01 * len(s):
         raise SourceUnavailable(
             f"FRED {series_id}: {len(fora)} observacoes fora de [{lo}, {hi}] -- "
             f"unidade ou coluna errada, recusado")
+    fonte = s.attrs.get("fonte", "")
     s = s[(s >= lo) & (s <= hi)]
-    log.info("FRED %s: %d observacoes, %s a %s", series_id, len(s),
+    s.attrs["fonte"] = fonte
+    log.info("%s: %d observacoes, %s a %s", fonte, len(s),
              s.index.min().date(), s.index.max().date())
     return s

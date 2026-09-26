@@ -90,13 +90,7 @@ def _extract_profit(df: pd.DataFrame, freq: str) -> pd.DataFrame:
     if sel.empty:
         raise SourceUnavailable("nenhuma linha de lucro consolidado encontrada no CSV da CVM")
 
-    sel["VL_CONTA"] = pd.to_numeric(
-        sel["VL_CONTA"].str.replace(",", ".", regex=False), errors="coerce")
-    if "ESCALA_MOEDA" in sel.columns:
-        mult = sel["ESCALA_MOEDA"].str.upper().map({"MIL": 1_000.0, "UNIDADE": 1.0})
-        sel["VL_CONTA"] = sel["VL_CONTA"] * mult.fillna(1_000.0)
-    else:
-        sel["VL_CONTA"] = sel["VL_CONTA"] * 1_000.0
+    sel["VL_CONTA"] = _escalar(sel)
 
     sel["DT_FIM_EXERC"] = pd.to_datetime(sel["DT_FIM_EXERC"], errors="coerce")
     sel = sel.dropna(subset=["DT_FIM_EXERC", "VL_CONTA"])
@@ -123,25 +117,116 @@ def _extract_profit(df: pd.DataFrame, freq: str) -> pd.DataFrame:
     cols = ["CD_CVM", "DENOM_CIA", "DT_FIM_EXERC", "VL_CONTA"]
     if "CNPJ_CIA" in sel.columns:
         cols.append("CNPJ_CIA")
+    ctrl = _lucro_controladora(df, sel, freq)
     out = sel[cols].copy()
     out.columns = (["cd_cvm", "empresa", "data_fim", "lucro"]
                    + (["cnpj"] if "CNPJ_CIA" in sel.columns else []))
     if "cnpj" not in out.columns:
         out["cnpj"] = ""
     out["freq"] = freq
+    out["lucro_ctrl"] = ctrl.reindex(out.index).fillna(out["lucro"]).values
     return out
 
 
+def _escalar(sel: pd.DataFrame) -> pd.Series:
+    v = pd.to_numeric(sel["VL_CONTA"].astype(str).str.replace(",", ".", regex=False),
+                      errors="coerce")
+    if "ESCALA_MOEDA" in sel.columns:
+        mult = sel["ESCALA_MOEDA"].astype(str).str.upper().map({"MIL": 1_000.0, "UNIDADE": 1.0})
+        return v * mult.fillna(1_000.0)
+    return v * 1_000.0
+
+
+def _lucro_controladora(df: pd.DataFrame, sel: pd.DataFrame, freq: str) -> pd.Series:
+    """Lucro ATRIBUIVEL AOS SOCIOS DA CONTROLADORA, alinhado ao indice de `sel`.
+
+    A conta de lucro (3.11, ou 3.09 no leiaute de alguns bancos) inclui a
+    parcela dos minoritarios das controladas. Para comparar com o preco da acao
+    da controladora -- que e o que o indice carrega --, o certo e a subconta
+    "Atribuido a Socios da Empresa Controladora" (codigo da conta-mae + ".01").
+    Medido no DFP 2025: 432 de 438 companhias publicam a subconta. Nas que nao
+    publicam, ou que a publicam zerada (Klabin, 2025), fica o valor da
+    conta-mae -- o mesmo criterio de "zero e formulario vazio" de
+    metrics.sem_zero_de_formulario. Casos em que a diferenca pesa: Banco do
+    Brasil (R$ 16,8 bi consolidado x R$ 13,7 bi da controladora em 2025),
+    Energisa (3,1 x 2,2), Metalurgica Gerdau (1,4 x 0,5).
+
+    Devolve NaN onde nao ha subconta utilizavel; quem chama preenche com a
+    conta-mae.
+    """
+    if "DS_CONTA" not in df.columns or sel.empty:
+        return pd.Series(index=sel.index, dtype="float64")
+    filhos = df[df["CD_CONTA"].isin([CONTA_LUCRO + ".01", CONTA_LUCRO_ALT + ".01"])
+                & df["DS_CONTA"].astype(str).str.contains("controladora", case=False, na=False)]
+    filhos = filhos[filhos["ORDEM_EXERC"].str.strip().str.upper() == "ÚLTIMO"].copy()
+    if filhos.empty:
+        return pd.Series(index=sel.index, dtype="float64")
+    filhos["_v"] = _escalar(filhos)
+    filhos["DT_FIM_EXERC"] = pd.to_datetime(filhos["DT_FIM_EXERC"], errors="coerce")
+    filhos["_mae"] = filhos["CD_CONTA"].str[:-3]
+    chave = ["CD_CVM", "DT_FIM_EXERC", "_mae"]
+    if "DT_INI_EXERC" in filhos.columns and "DT_INI_EXERC" in sel.columns:
+        filhos["_ini"] = pd.to_datetime(filhos["DT_INI_EXERC"], errors="coerce")
+        chave.append("_ini")
+    filhos = filhos.dropna(subset=["_v"])
+    filhos = filhos[filhos["_v"] != 0].drop_duplicates(chave, keep="last")
+    base = sel[["CD_CVM", "DT_FIM_EXERC", "CD_CONTA"]].rename(columns={"CD_CONTA": "_mae"})
+    if "_ini" in chave:
+        base["_ini"] = pd.to_datetime(sel["DT_INI_EXERC"], errors="coerce")
+    base = base.reset_index()
+    m = base.merge(filhos[chave + ["_v"]], on=chave, how="left").set_index("index")
+    return m["_v"].reindex(sel.index)
+
+
+COLUNAS_ACOES = ["cnpj", "data_ref", "versao", "on", "pn", "tes_on", "tes_pn"]
+
+
+def _extract_acoes(cap: pd.DataFrame) -> pd.DataFrame:
+    """Numero de acoes por companhia e data, do arquivo composicao_capital.
+
+    ATENCAO a unidade: o arquivo nao tem coluna de escala e mistura as duas.
+    No DFP 2025, Petrobras informa 7.442.231.382 ON (unidades) e o Itau,
+    5.617.743 ON (MILHARES -- o Itau tem 5,6 bilhoes de ON). Vale, Santander,
+    Taesa e Itausa tambem vem em milhares. A escala e resolvida depois, contra
+    a quantidade teorica da B3 (ver ibov_nivel.fracao_na_carteira): quantidade
+    no indice maior que o numero de acoes da companhia so e possivel se o
+    numero estiver em milhares.
+    """
+    col = {"CNPJ_CIA": "cnpj", "DT_REFER": "data_ref", "VERSAO": "versao",
+           "QT_ACAO_ORDIN_CAP_INTEGR": "on", "QT_ACAO_PREF_CAP_INTEGR": "pn",
+           "QT_ACAO_ORDIN_TESOURO": "tes_on", "QT_ACAO_PREF_TESOURO": "tes_pn"}
+    falta = set(col) - set(cap.columns)
+    if falta:
+        raise SourceUnavailable(f"composicao_capital sem colunas {sorted(falta)}")
+    out = cap[list(col)].rename(columns=col).copy()
+    for c in ("versao", "on", "pn", "tes_on", "tes_pn"):
+        out[c] = pd.to_numeric(out[c], errors="coerce").fillna(0.0)
+    out["data_ref"] = pd.to_datetime(out["data_ref"], errors="coerce")
+    return out.dropna(subset=["data_ref"])
+
+
+def _ano(bases: tuple, arquivo: str, freq: str) -> pd.DataFrame:
+    conteudo, _ = _baixar(bases, arquivo)
+    df = _extract_profit(_read_zip_csv(conteudo, "dre_con"), freq=freq)
+    try:
+        df.attrs["acoes"] = _extract_acoes(_read_zip_csv(conteudo, "composicao_capital"))
+    except Exception as exc:  # noqa: BLE001
+        log.warning("composicao do capital indisponivel em %s: %s", arquivo, str(exc)[:160])
+    return df
+
+
 def fetch_dfp_year(year: int) -> pd.DataFrame:
-    """Lucro anual consolidado de todas as companhias, para um exercicio."""
-    conteudo, _ = _baixar(CVM_DFP_BASES, f"dfp_cia_aberta_{year}.zip")
-    return _extract_profit(_read_zip_csv(conteudo, "dre_con"), freq="A")
+    """Lucro anual consolidado de todas as companhias, para um exercicio.
+
+    O numero de acoes (composicao do capital) vem no mesmo zip e sai em
+    df.attrs["acoes"].
+    """
+    return _ano(CVM_DFP_BASES, f"dfp_cia_aberta_{year}.zip", "A")
 
 
 def fetch_itr_year(year: int) -> pd.DataFrame:
     """Lucro trimestral consolidado de todas as companhias, para um ano."""
-    conteudo, _ = _baixar(CVM_ITR_BASES, f"itr_cia_aberta_{year}.zip")
-    return _extract_profit(_read_zip_csv(conteudo, "dre_con"), freq="T")
+    return _ano(CVM_ITR_BASES, f"itr_cia_aberta_{year}.zip", "T")
 
 
 def fetch_range(years: Iterable[int], kind: str) -> pd.DataFrame:
@@ -172,9 +257,14 @@ def fetch_range(years: Iterable[int], kind: str) -> pd.DataFrame:
         raise SourceUnavailable(
             f"nenhum ano de {kind} obtido. nao publicados: {ausentes}; "
             f"erros: {' | '.join(falhas[:3])}")
+    acoes = [f.attrs["acoes"] for f in frames if isinstance(f.attrs.get("acoes"), pd.DataFrame)]
+    for f in frames:
+        f.attrs = {}
     df = pd.concat(frames, ignore_index=True)
     df.attrs["anos_falhos"] = falhas
     df.attrs["anos_ausentes"] = ausentes
+    df.attrs["acoes"] = (pd.concat(acoes, ignore_index=True) if acoes
+                         else pd.DataFrame(columns=COLUNAS_ACOES))
     return df
 
 
@@ -190,7 +280,8 @@ def fetch_range(years: Iterable[int], kind: str) -> pd.DataFrame:
 # portal esta fora do ar, e isso nao torna o resultado mais honesto: torna-o
 # indisponivel.
 
-COLUNAS_CACHE = ["cd_cvm", "empresa", "data_fim", "lucro", "freq", "cnpj"]
+COLUNAS_CACHE = ["cd_cvm", "empresa", "data_fim", "lucro", "freq", "cnpj", "lucro_ctrl"]
+ACOES_CACHE_NOME = "acoes_cvm.csv"
 
 
 def salvar_cache(df: pd.DataFrame, origem: str) -> None:
@@ -213,6 +304,9 @@ def carregar_cache() -> tuple[pd.DataFrame, dict]:
     if not CVM_CACHE.exists():
         return pd.DataFrame(), {}
     df = pd.read_csv(CVM_CACHE, parse_dates=["data_fim"], dtype={"cnpj": str})
+    if "lucro_ctrl" not in df.columns and "lucro" in df.columns:
+        # Cache gravado antes de 26/09/2026: sem a subconta da controladora.
+        df["lucro_ctrl"] = df["lucro"]
     faltando = set(COLUNAS_CACHE) - set(df.columns)
     if faltando:
         log.warning("cache da CVM ignorado: colunas ausentes %s", sorted(faltando))
@@ -230,3 +324,19 @@ def carregar_cache() -> tuple[pd.DataFrame, dict]:
         except Exception:  # noqa: BLE001
             pass
     return df, meta
+
+
+def salvar_acoes(acoes: pd.DataFrame) -> None:
+    if acoes is None or acoes.empty:
+        return
+    (CVM_CACHE.parent / ACOES_CACHE_NOME).parent.mkdir(parents=True, exist_ok=True)
+    acoes[COLUNAS_ACOES].sort_values(["cnpj", "data_ref", "versao"]).to_csv(
+        CVM_CACHE.parent / ACOES_CACHE_NOME, index=False)
+
+
+def carregar_acoes() -> pd.DataFrame:
+    caminho = CVM_CACHE.parent / ACOES_CACHE_NOME
+    if not caminho.exists():
+        return pd.DataFrame(columns=COLUNAS_ACOES)
+    df = pd.read_csv(caminho, parse_dates=["data_ref"], dtype={"cnpj": str})
+    return df if set(COLUNAS_ACOES) <= set(df.columns) else pd.DataFrame(columns=COLUNAS_ACOES)
