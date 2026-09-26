@@ -172,3 +172,20 @@ def test_reparo_sem_efeito_nao_publica_aviso(tmp_path):
         rep.main()
     st = json.loads((tmp_path / "status.json").read_text(encoding="utf-8"))
     assert st["avisos"] == [], "nada foi removido; nao ha o que avisar"
+
+
+def test_sem_fred_o_tesouro_responde_e_a_fonte_fica_registrada():
+    """26/09/2026: o FRED deu ReadTimeout tres vezes no runner e o estagio de
+    juros ficou vazio. O Tesouro publica a mesma curva, e e a fonte do FRED."""
+    csv_tesouro = (b'Date,"5 YR","7 YR","10 YR","20 YR","30 YR"\n'
+                   b"09/25/2026,2.21,2.40,2.65,2.90,3.01\n")
+
+    def falso_get(url, **kw):
+        if "fred" in url:
+            raise SourceUnavailable("ReadTimeout")
+        return csv_tesouro
+
+    with mock.patch.object(juros, "get", side_effect=falso_get):
+        s = juros.fetch_serie("tips10")
+    assert s.iloc[-1] == pytest.approx(2.65)
+    assert "Tesouro" in s.attrs["fonte"]

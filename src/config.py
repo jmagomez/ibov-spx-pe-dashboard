@@ -124,8 +124,14 @@ STAT_WINDOW = 2520
 #
 # EPS trimestral: 92 dias de trimestre + 45 dias de prazo de divulgacao + folga.
 MAX_STALE_DAYS_EPS_TRIMESTRAL = 180
-# EPS mensal (planilha Shiller): serie mensal, tolerancia de um trimestre.
-MAX_STALE_DAYS_EPS_MENSAL = 120
+# EPS mensal (planilha Shiller). Era 120 dias, e 120 dias esvaziariam o P/E do
+# S&P a partir de 29/09/2026 sem que nada estivesse errado: a coluna E da
+# planilha e LPA de 12 meses interpolado a partir do lucro TRIMESTRAL, e o
+# ultimo trimestre fechado (2T26, datado 06/2026) so e sucedido quando o 3T26
+# for compilado pela S&P e incorporado por Shiller -- em geral dezembro. O LPA
+# de junho e, ate la, o LPA de 12 meses mais recente que existe, e nao um dado
+# vencido. 210 dias = fim do trimestre seguinte + ~120 dias de compilacao.
+MAX_STALE_DAYS_EPS_MENSAL = 210
 # CAPE: mensal, mesma tolerancia.
 MAX_STALE_DAYS_CAPE = 120
 # Lucro anual (DFP): exercicio + 3 meses de prazo regulatorio + folga de um ano,
