@@ -103,6 +103,12 @@ def coletar(spx: pd.DataFrame, ibov: pd.DataFrame, status: dict) -> dict:
                      ultimo(ibov, "valuation_idx", referencia)),
         "ibov_pct": ("Ibovespa - percentil do indicador (10a)", "",
                      ultimo(ibov, "valuation_pct", referencia)),
+        "spx_eps_yoy": ("S&P 500 - LPA 12m, variacao a/a", "%",
+                        ultimo(spx, "eps_yoy_pct", referencia)),
+        "spx_ey_real": ("S&P 500 - earnings yield menos juro real 10a", " pp",
+                        ultimo(spx, "ey_menos_real", referencia)),
+        "spx_cape_real": ("S&P 500 - 1/CAPE menos juro real 10a", " pp",
+                          ultimo(spx, "cape_yield_menos_real", referencia)),
     }
     estagios = {e["nome"]: bool(e.get("ok")) for e in status.get("estagios", [])}
     vencidas = sorted(v["fonte"] for v in status.get("vigencias", []) if v.get("vencida"))
@@ -114,6 +120,7 @@ def coletar(spx: pd.DataFrame, ibov: pd.DataFrame, status: dict) -> dict:
         "vencidas": vencidas,
         "avisos": list(status.get("avisos", [])),
         "gerado_em_utc": status.get("gerado_em_utc", ""),
+        "historico": dict(status.get("historico_longo", {}) or {}),
     }
 
 
@@ -131,6 +138,12 @@ def _faixa(pct: float | None) -> str:
     return "intermediaria"
 
 
+def _sinal(m: dict | None) -> str:
+    if not m:
+        return "sem_dado"
+    return "negativo" if m["valor"] < 0 else "positivo"
+
+
 def estado_atual(d: dict) -> dict:
     def _pct(chave):
         m = d["metricas"][chave][2]
@@ -141,6 +154,7 @@ def estado_atual(d: dict) -> dict:
         "vencidas": d["vencidas"],
         "faixa_spx": _faixa(_pct("spx_pct")),
         "faixa_ibov": _faixa(_pct("ibov_pct")),
+        "sinal_premio_cape": _sinal(d["metricas"].get("spx_cape_real", (None, None, None))[2]),
         "series_vazias": sorted(k for k, (_, _, m) in d["metricas"].items() if m is None),
     }
 
@@ -186,6 +200,12 @@ def mudancas(atual: dict, anterior: dict | None) -> list[str]:
               "baixa": f"abaixo do percentil {FAIXA_BAIXA:.0f}",
               "intermediaria": "na faixa intermediaria",
               "sem_dado": "sem dado"}
+    a, b = anterior.get("sinal_premio_cape"), atual.get("sinal_premio_cape")
+    if a in ("positivo", "negativo") and b in ("positivo", "negativo") and a != b:
+        out.append("S&P 500: o rendimento do lucro normalizado (1/CAPE) passou a ficar "
+                   + ("ABAIXO" if b == "negativo" else "ACIMA")
+                   + " do juro real de 10 anos (TIPS). E leitura de valuation relativo a "
+                     "juros, nao sinal de compra ou venda.")
     for chave, nome in (("faixa_spx", "S&P 500"), ("faixa_ibov", "Ibovespa")):
         a, b = anterior.get(chave), atual.get(chave)
         if a and b and a != b:
@@ -234,6 +254,24 @@ def assunto(d: dict, muds: list[str]) -> str:
     return f"{prefixo}P/E Ibovespa x S&P 500 - {d['referencia']} - {corpo}"
 
 
+def historia_longa_linhas(d: dict) -> list[str]:
+    """O percentil de 10 anos dos cartoes, recolocado contra a historia inteira."""
+    h = d.get("historico") or {}
+    L = []
+    if "pe" in h:
+        x = h["pe"]
+        L.append(f"P/E {_num(x['atual'])} no percentil {_num(x['percentil'], 0)} desde "
+                 f"{x['inicio'][:4]} (mediana historica {_num(x['mediana'], 1)})")
+    if "cape" in h:
+        x = h["cape"]
+        L.append(f"CAPE {_num(x['atual'])} no percentil {_num(x['percentil'], 0)} desde "
+                 f"{x['inicio'][:4]} (mediana {_num(x['mediana'], 1)}; maximo "
+                 f"{_num(x['maximo'], 1)} em {x['data_maximo'][:7]})")
+    if not L:
+        return []
+    return ["HISTORIA LONGA (planilha de Shiller)"] + [f"  {x}" for x in L]
+
+
 def texto(d: dict, muds: list[str]) -> str:
     L = [f"P/E Ibovespa x S&P 500 - dados ate {d['referencia']}", ""]
     if muds:
@@ -250,6 +288,7 @@ def texto(d: dict, muds: list[str]) -> str:
         marca = f"  [sem atualizacao ha {m['idade_dias']} dias]" if m["vencido"] else ""
         L.append(f"  {rotulo}: {_num(m['valor'])}{suf}  "
                  f"vs anterior {_linha_delta(m)}  (em {m['data']}){marca}")
+    L += [""] + historia_longa_linhas(d)
     falhos = [n for n, ok in d["estagios"].items() if not ok]
     L += ["", f"COLETA: {len(d['estagios']) - len(falhos)}/{len(d['estagios'])} estagios ok"]
     if falhos:
@@ -312,6 +351,15 @@ def html(d: dict, muds: list[str]) -> str:
                   + "".join(f"<li style='font-size:12.5px;color:#6E8087;margin:3px 0'>{a}</li>"
                             for a in d["avisos"]) + "</ul>")
 
+    hl = historia_longa_linhas(d)
+    historia_html = ""
+    if hl:
+        historia_html = ('<p style="font-size:13px;color:#11324A;margin:16px 0 4px"><b>'
+                         'Historia longa (planilha de Shiller)</b></p>'
+                         '<ul style="margin:0;padding-left:20px">'
+                         + "".join(f"<li style='font-size:13px;margin:3px 0'>{x}</li>"
+                                   for x in hl[1:]) + "</ul>")
+
     return f"""<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"></head>
 <body style="margin:0;background:#F4F7F9;
              font-family:'Segoe UI',Calibri,system-ui,sans-serif;color:#1E2933">
@@ -332,6 +380,7 @@ def html(d: dict, muds: list[str]) -> str:
       </tr></thead>
       <tbody>{"".join(linhas)}</tbody>
     </table>
+    {historia_html}
     <p style="font-size:13px;color:#6E8087;margin:14px 0 0">Coleta: {coleta}</p>
     {avisos}
     <p style="margin:22px 0 6px">
