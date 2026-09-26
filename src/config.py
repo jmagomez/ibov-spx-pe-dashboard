@@ -123,6 +123,9 @@ MAX_STALE_DAYS_CAPE = 120
 # porque a serie anual e degrau por construcao e vale ate o exercicio seguinte.
 MAX_STALE_DAYS_LUCRO_ANUAL = 550
 MAX_STALE_DAYS_LUCRO_TRIMESTRAL = 200
+# Juros diarios do FRED: a serie so tem buraco em feriado. Dez dias corridos
+# cobrem feriado prolongado; mais que isso e fonte parada.
+MAX_STALE_DAYS_JUROS = 10
 
 # --- Faixa de plausibilidade do CAPE ---------------------------------------
 # O CAPE do S&P 500 oscilou entre ~5 (1920, 1982) e ~44 (2000) em toda a serie
