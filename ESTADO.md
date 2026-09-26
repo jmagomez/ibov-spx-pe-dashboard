@@ -3,6 +3,33 @@
 Registro honesto do que ja foi exercitado contra a realidade e do que ainda nao.
 Atualizado em 26/09/2026.
 
+## Execução de validação de 26/09/2026 (branch `claude/validacao-runner-2`)
+
+Números do runner, com o código do PR #2, e não do ambiente de desenvolvimento:
+
+| Medida | Valor | Leitura |
+|---|---|---|
+| S&P 500 — P/E trailing GAAP | 26,2x | Percentil 93 desde 1871 (mediana 15,1); percentil 68 na janela de 10 anos |
+| S&P 500 — CAPE | 40,6 | Percentil 99 desde 1881; só 20 meses acima (quase todos em 1999-2000, mais ago/2026; máximo 44,2 em dez/1999) |
+| 1/CAPE − TIPS 10a | −0,37 p.p. | TIPS 2,83% (Tesouro dos EUA; o FRED não respondeu) |
+| Earnings yield − TIPS 10a | +0,99 p.p. | Treasury 10a nominal a 5,17% |
+| Ibovespa — P/L 12m (índice × redutor) | **11,25x** | 98,6% do peso coberto; lucro da carteira R$ 225 bi |
+| Ibovespa — P/L 12m (Σ q × preço) | 11,26x | As duas medidas do numerador diferem 0,04% |
+| Ibovespa — percentil do P/L | 40 (10 anos) | Mediana desde 2011: 15,4x (faixa p10-p90: 7,1x a 21,8x); z = −0,5 |
+
+O que o diagnóstico (`tools/diagnostico3.py`) mediu antes de o código ser escrito: o cabeçalho da
+carteira do dia da B3 traz o redutor; 432 de 438 companhias publicam a subconta do lucro da
+controladora no DFP 2025; a composição do capital vem no mesmo zip da DFP/ITR, **sem escala** —
+Petrobras em unidades, Itaú, Vale, Santander, Taesa e Itaúsa em milhares.
+
+Dois defeitos que a execução pegou e que os testes não pegariam:
+
+- O FRED deu ReadTimeout três vezes e o estágio de juros inteiro ficou vazio. O CSV do Tesouro dos
+  EUA entrou como reserva.
+- O teto de 120 dias para o LPA mensal da Shiller esvaziaria o P/E do S&P a partir de 29/09/2026,
+  sem nada errado: o LPA de junho (2T26) é o mais recente que existe até o 3T26 ser compilado. Teto
+  agora de 210 dias.
+
 ## Auditoria de 26/09/2026: o lucro do Ibovespa deixava o 4T de fora
 
 Revisão feita a partir da pergunta "estes números são mesmo tão altos?". Para o S&P 500 a
@@ -89,7 +116,7 @@ da ultima observacao dentro do arquivo.
 
 | Componente | Evidencia |
 |---|---|
-| Testes de calculo | 116 testes passam no runner (`pytest tests -q`) |
+| Testes de calculo | 132 testes passam (`pytest tests -q`), inclusive com o pandas 2.2.3 do runner |
 | Orquestracao e diagnostico | `status.json` gerado, com estagio, situacao e detalhe por fonte |
 | Renderizacao do dashboard | `docs/index.html` produzido mesmo com todas as fontes falhando |
 | Degradacao explicita | Graficos vazios com a causa escrita; nenhum numero inventado |

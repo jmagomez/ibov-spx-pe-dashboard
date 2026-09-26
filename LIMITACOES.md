@@ -22,7 +22,9 @@ raramente é dito.
 ## 2. Viés de sobrevivência no Ibovespa — o problema mais grave da série brasileira
 
 A B3 não publica em formato aberto o histórico de composição do Ibovespa. O pipeline usa a
-**carteira vigente** e aplica os lucros dessas mesmas empresas ao passado.
+**carteira vigente** e aplica os lucros dessas mesmas empresas ao passado. Com o P/L em nível
+(seção 10), isso ficou explícito: o número de hoje é o P/L do índice; o histórico é o P/L que a
+carteira de hoje teria tido.
 
 O efeito é sistemático e conhecido: empresas que entraram no índice depois de 2010 tendem a
 ter entrado **porque cresceram**, e empresas que saíram tendem a ter saído **porque
@@ -32,8 +34,8 @@ agregado histórico fica **superestimado**, e o múltiplo, **subestimado** — o
 mais barato no passado do que estava.
 
 A direção do viés é conhecida; a magnitude, não. Não há como estimá-la sem os dados que
-faltam. Por isso a série do Ibovespa é rotulada como índice de valuation e não como P/E, e
-por isso a comparação em nível com o S&P 500 é explicitamente desaconselhada.
+faltam. Por isso o percentil histórico do P/L do Ibovespa deve ser lido como posição da carteira
+atual contra a própria história, e não do índice contra a dele.
 
 **O que resolveria:** base de constituintes point-in-time (EODHD, Norgate, Refinitiv,
 Bloomberg). Todas pagas. É a fronteira do que este projeto entrega de graça.
@@ -87,7 +89,9 @@ com viés próprio, não uma série melhor.
 | B3 (endpoint de carteira) | Endpoint interno do portal, sem contrato público de estabilidade. Pode mudar sem aviso. |
 | yfinance / Yahoo | Provedor de preço em uso desde 08/2026. Biblioteca de terceiros sobre endpoint não oficial; já respondeu 429 a IP de datacenter. |
 | Stooq | Agregador de terceiros, reserva do yfinance. Pode ter ajustes e falhas pontuais. |
-| FRED (juros) | Oficial e estável, mas é a única fonte dos prêmios sobre juro: se falhar, os dois gráficos de juros ficam vazios. |
+| FRED (juros) | Oficial, mas deu ReadTimeout no runner em 26/09/2026. O CSV diário do Tesouro dos EUA entra como reserva. |
+| B3 (redutor) | Vem no cabeçalho do mesmo endpoint interno da carteira. Sem ele, o P/L de hoje sai só pela soma de quantidade × preço. |
+| yfinance (ações) | Preço de cada papel da carteira, para a série histórica do P/L. Papel sem histórico (renomeado, IPO recente) reduz a cobertura das datas antigas. |
 | CVM | Portal estável, mas o ITR só mantém cinco anos e a estrutura de contas mudou ao longo do tempo. |
 | Shiller (`ie_data.xls`) | Hospedado em blob de terceiros; a URL já mudou historicamente. |
 
@@ -165,23 +169,37 @@ A S&P DJI publica também o LPA *operating*, que exclui parte desses itens. O co
 existe (`src/sources/spdji.py`), mas o arquivo responde 403 ao runner do GitHub desde a
 execução #4 — ver `ESTADO.md`.
 
-## 10. O agregado de lucro do Ibovespa: o que a soma ainda não trata
+## 10. O P/L do Ibovespa em nível: o que foi resolvido e o que continua aberto
 
-A série do Ibovespa soma o lucro líquido **consolidado** (conta 3.11 da CVM) das companhias da
-carteira vigente. Três vieses conhecidos, nenhum corrigido:
+Desde 26/09/2026 o Ibovespa tem P/L em nível (`METODOLOGIA.md`, seção 4). Três vieses da série
+anterior foram resolvidos na construção: o lucro passou a ser o **atribuível à controladora**, cada
+companhia entra na **fração que o índice carrega** (quantidade teórica / ações em circulação), e com
+isso holding e controlada no mesmo índice deixaram de ser dupla contagem. O numerador confere com o
+da própria B3 (índice × redutor) com diferença de 0,04%.
 
-- **Participação de não controladores.** A 3.11 inclui a parcela do lucro que pertence aos
-  minoritários das controladas. O correto, para comparar com o preço da ação da controladora,
-  seria a 3.11.01 (atribuível aos sócios da controladora). A troca de conta exige validar o
-  plano de contas de bancos e seguradoras contra os arquivos originais, o que ainda não foi
-  feito.
-- **Dupla contagem entre holding e controlada.** Quando as duas estão no índice (Itaúsa e Itaú;
-  Cosan e Rumo; Banco do Brasil e BB Seguridade), parte do mesmo lucro entra duas vezes. Como a
-  série é normalizada, um viés estável se cancela; um que muda ao longo do tempo, não.
-- **Lucro total, não por ação.** Emissões e recompras mudam o lucro total sem mudar o lucro por
-  ação — e o índice, do outro lado da razão, é por ação.
+O que continua aberto, em ordem de peso:
 
-Corrigido em 26/09/2026 (ver `ESTADO.md`): o lucro de 12 meses do trecho trimestral deixava o
+- **Viés de sobrevivência no histórico** (seção 2). O valor de hoje é o P/L da carteira de hoje; o
+  histórico é o P/L que esta carteira teria tido. Companhias com lucro deprimido no passado (Petrobras
+  em 2014-16, Vale em 2015 e 2019) puxam o P/L histórico para cima — a mediana desde 2011 (~15x) não
+  é "o P/L médio do Ibovespa".
+- **Lucro contábil, não recorrente.** O LTM é IFRS como publicado. Em 09/2026 a Vale aparece a ~28x
+  porque o 4T25 carrega baixas contábeis; o agregado inclui isso. Não há ajuste de itens não
+  recorrentes, pelo mesmo motivo da seção 9.
+- **Mesmo LPA para ON e PN.** O lucro por ação é L/N para todas as classes. Onde o estatuto dá à PN
+  dividendo 10% maior (Bradesco: LPA básico ON 2,13 x PN 2,35 em 2025), a diferença é ignorada.
+- **Fração f constante no histórico.** O número de ações é o do último formulário. Emissões e
+  recompras passadas não são refeitas; desdobramentos, sim, porque o preço do yfinance vem ajustado
+  por eles.
+- **Companhias sem lucro consolidado utilizável** saem do numerador e do denominador pelo peso delas:
+  TIM (DRE consolidada vazia), Assaí (sem formulário sob o código CVM atual) e Bradespar — 1,3% do
+  peso em 09/2026 —, e Tenda (número de ações em escala que não fecha com a quantidade teórica, 0,1%).
+  A cobertura aparece no painel e em `status.json` (`pl_ibov`).
+- **Composição das units** (BPAC11, ENGI11, IGTI11, KLBN11, SANB11, TAEE11) vem de uma tabela no
+  código. Unit fora da tabela é excluída, não presumida; uma mudança de composição exige atualizar a
+  tabela.
+
+Corrigido também em 26/09/2026 (ver `ESTADO.md`): o lucro de 12 meses do trecho trimestral deixava o
 4º trimestre de fora, e lucro exatamente zero (DRE consolidada vazia) entrava como zero.
 
 ## O que estas séries não permitem concluir
