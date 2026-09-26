@@ -100,9 +100,25 @@ def _extract_profit(df: pd.DataFrame, freq: str) -> pd.DataFrame:
 
     sel["DT_FIM_EXERC"] = pd.to_datetime(sel["DT_FIM_EXERC"], errors="coerce")
     sel = sel.dropna(subset=["DT_FIM_EXERC", "VL_CONTA"])
+    # Zero exato e DRE consolidada vazia (companhia que so publica a individual),
+    # nao lucro zero. Ver metrics.sem_zero_de_formulario: la o mesmo filtro limpa
+    # o que ja estava no cache antes desta correcao.
+    sel = sel[sel["VL_CONTA"] != 0]
+    # ITR: a DRE traz, para a mesma data de fim, DUAS linhas -- a do trimestre
+    # (inicio no comeco do trimestre) e a do acumulado no ano (inicio em 1o de
+    # janeiro). Ate aqui a escolha entre elas ficava a cargo do desempate de um
+    # sort_values nao estavel. No dado real ela caiu no trimestre (mediana de
+    # (1T+2T+3T)/anual = 0,74; acumulado daria ~1,5), mas por acaso de ordem,
+    # nao por regra. Agora e regra: fica a linha com duracao de ate ~um
+    # trimestre. Sem DT_INI_EXERC no arquivo, o comportamento anterior se
+    # mantem.
+    if freq == "T" and "DT_INI_EXERC" in sel.columns:
+        ini = pd.to_datetime(sel["DT_INI_EXERC"], errors="coerce")
+        dur = (sel["DT_FIM_EXERC"] - ini).dt.days
+        sel = sel[dur.isna() | (dur <= 100)]
     # 3.11 tem prioridade sobre 3.09 quando ambos existem para a mesma companhia/data.
     sel["_prio"] = (sel["CD_CONTA"] == CONTA_LUCRO).astype(int)
-    sel = (sel.sort_values(["CD_CVM", "DT_FIM_EXERC", "_prio"])
+    sel = (sel.sort_values(["CD_CVM", "DT_FIM_EXERC", "_prio"], kind="mergesort")
               .drop_duplicates(["CD_CVM", "DT_FIM_EXERC"], keep="last"))
     cols = ["CD_CVM", "DENOM_CIA", "DT_FIM_EXERC", "VL_CONTA"]
     if "CNPJ_CIA" in sel.columns:
