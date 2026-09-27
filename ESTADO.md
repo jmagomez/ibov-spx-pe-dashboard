@@ -3,6 +3,64 @@
 Registro honesto do que ja foi exercitado contra a realidade e do que ainda nao.
 Atualizado em 26/09/2026.
 
+## Conferência externa do P/L do Ibovespa e ITR desde 2011 (26/09/2026)
+
+**Contra quem.** Investidor10, página "P/L do Ibovespa" (histórico mensal desde 07/2016). Não é
+insumo: a metodologia não é reproduzível — universo de todas as ações com liquidez, não só o
+Ibovespa, e média ponderada dos P/L individuais. Serve para dizer se nível e direção batem.
+
+**Hoje.** 10,80x lá, 11,25x aqui (+4,2%). Em 2024-26 a diferença média mensal é de +4%.
+
+**O que a conferência achou: um erro nosso, e não deles.** Com o código de então, as séries
+divergiam muito em 2021 (21x aqui contra 12x lá) e 2017-18 (+15%). A causa: o pipeline coletava ITR
+só dos últimos cinco anos, e a documentação dizia que o portal da CVM "mantém apenas os últimos cinco
+anos". Não mantém — o diretório `ITR/DADOS` tem arquivos de 2011 a 2026. Até 2021 o P/L usava o lucro
+**anual**, defasado em até 15 meses: durante quase todo o ano de 2021 o denominador era o lucro de 2020
+(pandemia), e a queda do P/L só aparecia em abril de 2022. Corrigido: ITR desde `ITR_INICIO = 2011`.
+Na validação do runner (branch `claude/validacao-runner-5`), 84,9% do peso coberto passa a vir de LTM
+trimestral em 2012-2020, contra 0% antes.
+
+| Comparação mensal com o Investidor10 | Antes (ITR 5 anos) | Depois (ITR desde 2011) |
+|---|---|---|
+| Correlação de postos (Spearman), 118 meses | 0,76 | **0,89** |
+| Diferença média, 2024-26 | +4,0% | +4,0% |
+| Diferença média, 06/2021-2023 | +24,3% | −15,9% |
+| Diferença média, 04/2017-05/2020 | +15,7% | +12,0% |
+| 2021 (P/L de dezembro) | 19,2x | 6,6x (lá: 8,9x) |
+
+**A divergência que sobra é de construção, e tem sinal previsível.** Aqui o P/L é Σ valor / Σ lucro;
+lá, média de P/L. Com lucros positivos, a média aritmética de P/L é sempre maior ou igual ao P/L
+agregado — por isso este painel sai ~16% abaixo em 2021-23, com lucro de commodities no pico. Com
+prejuízo, a média de P/L descarta a companhia e o agregado a desconta do denominador — por isso este
+painel sai muito acima quando Petrobras e Vale têm baixas grandes: ~140x em 12/2016-03/2017 (4T15),
+25-40x em 06/2020-03/2021 (1T20 da Petrobras), e lucro agregado **negativo** entre 04 e 12/2016 (P/L
+indefinido, série vazia). Excluídos os 11 meses acima de 30x, a correlação de nível é 0,88.
+
+**Consequência para as estatísticas.** Com esses meses na janela, a média de 10 anos do P/L ficou em
+17,8x e o desvio-padrão em 22,0x: um z-score sobre o P/L não diz nada. Percentil e z-score do
+Ibovespa passam a ser calculados sobre L/P (`METODOLOGIA.md`, seção 6), que é contínuo em zero e põe
+os meses de prejuízo no topo da distribuição. O gráfico do P/L passa a escala logarítmica.
+
+| Ibovespa, runner de 26/09/2026 | Antes | Depois |
+|---|---|---|
+| P/L 12m (índice × redutor) | 11,25x | 11,25x (o valor de hoje não muda: o LTM de hoje já vinha do ITR) |
+| Percentil de 10 anos | 40 (sobre o P/L) | **43** (sobre L/P) |
+| Z-score de 10 anos | −0,5 (sobre o P/L) | **−0,08** (sobre L/P; L/P de 8,9% contra média de 8,7%) |
+| Mediana do P/L, 10 anos | 13,9x | 12,8x (p10 6,4x, p90 27,2x) |
+
+Leitura: o Ibovespa está perto do meio da própria história de 10 anos, levemente abaixo da mediana
+em P/L. Não é "barato".
+
+**Um defeito operacional que a validação pegou.** Na execução intermediária
+(`claude/validacao-runner-4`) o portal da CVM não respondeu ao runner, e o job levou mais de 12
+minutos tentando ano a ano (~40 s por ano) antes de cair no cache. `cvm.fetch_range` ganhou um
+disjuntor: três anos seguidos com erro de rede e nenhum acerto encerram a coleta. Coberto por teste;
+ainda não exercitado no runner com o portal fora do ar.
+
+**O que continua dependendo de sorte:** se o portal estiver fora na primeira execução depois do
+merge, o cache usado será o de `main`, com ITR só desde 2021, e o histórico sai como antes até a
+próxima coleta que funcionar. O painel avisa quando usa cache.
+
 ## Execução de validação de 26/09/2026 (branch `claude/validacao-runner-2`)
 
 Números do runner, com o código do PR #2, e não do ambiente de desenvolvimento:
@@ -15,7 +73,7 @@ Números do runner, com o código do PR #2, e não do ambiente de desenvolviment
 | Earnings yield − TIPS 10a | +0,99 p.p. | Treasury 10a nominal a 5,17% |
 | Ibovespa — P/L 12m (índice × redutor) | **11,25x** | 98,6% do peso coberto; lucro da carteira R$ 225 bi |
 | Ibovespa — P/L 12m (Σ q × preço) | 11,26x | As duas medidas do numerador diferem 0,04% |
-| Ibovespa — percentil do P/L | 40 (10 anos) | Mediana desde 2011: 15,4x (faixa p10-p90: 7,1x a 21,8x); z = −0,5 |
+| Ibovespa — percentil do P/L | 40 (10 anos) | Mediana desde 2011: 15,4x (faixa p10-p90: 7,1x a 21,8x); z = −0,5. **Superado** pela seção acima: com ITR desde 2011 e estatísticas sobre L/P, percentil 43 e z −0,08 |
 
 O que o diagnóstico (`tools/diagnostico3.py`) mediu antes de o código ser escrito: o cabeçalho da
 carteira do dia da B3 traz o redutor; 432 de 438 companhias publicam a subconta do lucro da
@@ -116,7 +174,7 @@ da ultima observacao dentro do arquivo.
 
 | Componente | Evidencia |
 |---|---|
-| Testes de calculo | 132 testes passam (`pytest tests -q`), inclusive com o pandas 2.2.3 do runner |
+| Testes de calculo | 136 testes passam (`pytest tests -q`), inclusive com o pandas 2.2.3 do runner |
 | Orquestracao e diagnostico | `status.json` gerado, com estagio, situacao e detalhe por fonte |
 | Renderizacao do dashboard | `docs/index.html` produzido mesmo com todas as fontes falhando |
 | Degradacao explicita | Graficos vazios com a causa escrita; nenhum numero inventado |
