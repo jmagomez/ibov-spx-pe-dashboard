@@ -29,7 +29,7 @@ from .config import (MAX_STALE_DAYS_CAPE, MAX_STALE_DAYS_EPS_MENSAL,
                      MAX_STALE_DAYS_LUCRO_ANUAL,
                      MAX_STALE_DAYS_LUCRO_TRIMESTRAL, PROCESSED,
                      REPORTING_LAG_DAYS_INDEX, REPORTING_LAG_DAYS_PIT,
-                     REPORTING_LAG_DAYS_PIT_DEZEMBRO, STAT_WINDOW)
+                     REPORTING_LAG_DAYS_PIT_DEZEMBRO, STAT_WINDOW, ITR_INICIO)
 from .sources import ativos, b3, cvm, juros, prices, shiller, spdji
 
 logging.basicConfig(level=logging.INFO,
@@ -337,7 +337,7 @@ def build_ibov(status: Status):
         lista_acoes: list = []
         dfp = cvm.fetch_range(range(2010, ano + 1), "DFP", acoes_out=lista_acoes)
         try:
-            itr = cvm.fetch_range(range(ano - 5, ano + 1), "ITR", acoes_out=lista_acoes)
+            itr = cvm.fetch_range(range(ITR_INICIO, ano + 1), "ITR", acoes_out=lista_acoes)
         except Exception as exc:  # noqa: BLE001
             itr = pd.DataFrame()
             status.avisos.append(f"ITR indisponivel; serie do IBOV fica so anual. {exc}")
@@ -358,7 +358,7 @@ def build_ibov(status: Status):
                 f"Exercicio(s) {', '.join(map(str, ausentes))} sem DFP no portal da CVM "
                 f"(HTTP 404 -- o arquivo nao existe, nao e falha de rede). Enquanto nao "
                 f"for publicado, o trecho correspondente da serie do Ibovespa se apoia "
-                f"no ITR, que cobre os ultimos cinco anos em frequencia trimestral.")
+                f"no ITR, disponivel desde {ITR_INICIO} em frequencia trimestral.")
         cvm.salvar_cache(lucros, st.detalhe)
     except Exception as exc:  # noqa: BLE001
         st.detalhe = str(exc)[:600]
