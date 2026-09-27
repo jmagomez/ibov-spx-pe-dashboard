@@ -3,14 +3,14 @@
 Duas bases, com coberturas diferentes -- e essa diferenca e material:
 
   DFP (Demonstracoes Financeiras Padronizadas): anual, disponivel desde 2010.
-  ITR (Informacoes Trimestrais): trimestral, mas o portal mantem apenas os
-      ultimos cinco anos.
+  ITR (Informacoes Trimestrais): 1T, 2T e 3T, disponivel desde 2011. O 4T nao
+      existe como formulario: e derivado da DFP (metrics.completar_quarto_trimestre).
 
-Consequencia direta e inevitavel: para o Ibovespa nao existe, em fonte publica
-gratuita, lucro TRIMESTRAL desde 2010. O trecho antigo da serie so pode ser
-construido com lucro ANUAL. O pipeline constroi as duas partes, marca cada
-observacao com a frequencia de origem e o dashboard as distingue visualmente.
-Emendar as duas em uma linha unica sem sinalizacao seria enganoso.
+Correcao de 26/09/2026: este texto dizia que o portal mantinha so os ultimos
+cinco anos de ITR, e o pipeline coletava so esses cinco. O diretorio
+ITR/DADOS tem arquivos desde 2011. Com isso o lucro de 12 meses trimestral
+passa a existir a partir do fim de 2011, e o trecho anual fica restrito a 2010-11
+e as companhias com buraco no ITR.
 """
 from __future__ import annotations
 

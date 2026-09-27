@@ -110,10 +110,10 @@ REPORTING_LAG_DAYS_PIT = 75
 # o LPA do S&P vem mensal, ja com o ciclo de reporte americano embutido.
 REPORTING_LAG_DAYS_PIT_DEZEMBRO = 92
 
-# Primeiro ano de ITR coletado. ATE 27/09/2026 o pipeline buscava so os
+# Primeiro ano de ITR coletado. ATE 26/09/2026 o pipeline buscava so os
 # ultimos cinco anos, e a documentacao dizia que o portal da CVM "mantem apenas
 # os ultimos cinco anos". Nao mantem: o diretorio ITR/DADOS tem arquivos de
-# 2011 em diante (conferido em 27/09/2026). O corte artificial deixava o trecho
+# 2011 em diante (conferido em 26/09/2026). O corte artificial deixava o trecho
 # 2011-2021 da serie do Ibovespa com lucro ANUAL, defasado em ate 15 meses --
 # em 2021 o P/L saia com o lucro de 2020 (pandemia) e chegava ao dobro do que o
 # mercado media. Ver ESTADO.md.
