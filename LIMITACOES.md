@@ -92,7 +92,7 @@ com viés próprio, não uma série melhor.
 | FRED (juros) | Oficial, mas deu ReadTimeout no runner em 26/09/2026. O CSV diário do Tesouro dos EUA entra como reserva. |
 | B3 (redutor) | Vem no cabeçalho do mesmo endpoint interno da carteira. Sem ele, o P/L de hoje sai só pela soma de quantidade × preço. |
 | yfinance (ações) | Preço de cada papel da carteira, para a série histórica do P/L. Papel sem histórico (renomeado, IPO recente) reduz a cobertura das datas antigas. |
-| CVM | Portal estável, mas o ITR só mantém cinco anos e a estrutura de contas mudou ao longo do tempo. |
+| CVM | Portal estável (ITR desde 2011, DFP desde 2010), mas fica fora do ar às vezes a partir do runner — o pipeline usa o cache da última coleta real e avisa. A estrutura de contas mudou ao longo do tempo. |
 | Shiller (`ie_data.xls`) | Hospedado em blob de terceiros; a URL já mudou historicamente. |
 
 Nenhuma dessas fontes tem SLA. Todas podem falhar em qualquer dia útil. O projeto trata isso
@@ -181,8 +181,20 @@ O que continua aberto, em ordem de peso:
 
 - **Viés de sobrevivência no histórico** (seção 2). O valor de hoje é o P/L da carteira de hoje; o
   histórico é o P/L que esta carteira teria tido. Companhias com lucro deprimido no passado (Petrobras
-  em 2014-16, Vale em 2015 e 2019) puxam o P/L histórico para cima — a mediana desde 2011 (~15x) não
-  é "o P/L médio do Ibovespa".
+  em 2014-16 e 2020, Vale em 2015 e 2019) puxam o P/L histórico para cima — a mediana desde 2011
+  (~15x) não é "o P/L médio do Ibovespa".
+- **P/L agregado explode com lucro perto de zero.** Com o LTM trimestral desde 2011, as baixas do
+  4T15 levam o P/L da carteira atual a ~140x no começo de 2017, e em 2016 o lucro agregado chega a ser
+  negativo (série vazia). Por isso o percentil e o z-score do Ibovespa são medidos sobre L/P
+  (`METODOLOGIA.md`, seção 6). O gráfico usa escala logarítmica.
+- **Não é o número dos agregadores.** Conferido em 26/09/2026 contra o Investidor10 (10,80x lá,
+  11,25x aqui): o nível de hoje bate em ordem de grandeza, mas as séries divergem de forma
+  estrutural. O Investidor10 usa todas as ações com liquidez, não só o Ibovespa, e faz a média
+  ponderada dos P/L individuais; aqui é Σ valor / Σ lucro. A média aritmética de P/L é sempre maior
+  ou igual ao P/L agregado quando os lucros são positivos — daí este painel sair ~16% abaixo entre
+  meados de 2021 e 2023, com lucros de commodities no pico — e, quando há prejuízo, quem faz média de P/L
+  individuais descarta a companhia, enquanto o agregado a desconta do denominador — daí sair muito
+  acima em 2016-17 e 2020-21. Ver `ESTADO.md`.
 - **Lucro contábil, não recorrente.** O LTM é IFRS como publicado. Em 09/2026 a Vale aparece a ~28x
   porque o 4T25 carrega baixas contábeis; o agregado inclui isso. Não há ajuste de itens não
   recorrentes, pelo mesmo motivo da seção 9.
@@ -195,12 +207,14 @@ O que continua aberto, em ordem de peso:
   TIM (DRE consolidada vazia), Assaí (sem formulário sob o código CVM atual) e Bradespar — 1,3% do
   peso em 09/2026 —, e Tenda (número de ações em escala que não fecha com a quantidade teórica, 0,1%).
   A cobertura aparece no painel e em `status.json` (`pl_ibov`).
-- **Composição das units** (BPAC11, ENGI11, IGTI11, KLBN11, SANB11, TAEE11) vem de uma tabela no
+- **Composição das units** (BPAC11, ENGI11, IGTI11, KLBN11, SANB11, TAEE11, ALUP11, SAPR11) vem de uma tabela no
   código. Unit fora da tabela é excluída, não presumida; uma mudança de composição exige atualizar a
   tabela.
 
 Corrigido também em 26/09/2026 (ver `ESTADO.md`): o lucro de 12 meses do trecho trimestral deixava o
-4º trimestre de fora, e lucro exatamente zero (DRE consolidada vazia) entrava como zero.
+4º trimestre de fora, e lucro exatamente zero (DRE consolidada vazia) entrava como zero. E o ITR era
+coletado só dos últimos cinco anos, com base numa afirmação falsa sobre o portal da CVM: até 2021 o
+histórico usava lucro anual defasado em até 15 meses.
 
 ## O que estas séries não permitem concluir
 
