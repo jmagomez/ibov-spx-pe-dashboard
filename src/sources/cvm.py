@@ -233,13 +233,19 @@ def fetch_itr_year(year: int) -> pd.DataFrame:
 
 
 def fetch_range(years: Iterable[int], kind: str,
-                acoes_out: list | None = None) -> pd.DataFrame:
+                acoes_out: list | None = None, desistir_apos: int = 3) -> pd.DataFrame:
     """Coleta varios anos, tolerando anos individualmente indisponiveis.
 
     Um ano que falha e registrado e omitido -- nunca substituido por estimativa.
     Se TODOS falharem, levanta excecao: uma serie vazia silenciosa seria pior
     que um erro. Com `acoes_out`, o numero de acoes de cada ano e acrescentado
     a essa lista.
+
+    Disjuntor: se os `desistir_apos` primeiros anos falharem por erro de rede
+    (404 nao conta), os demais nao sao tentados. Com o portal fora do ar, cada
+    ano custa ~40 s (dois enderecos x duas tentativas x connect timeout), e em
+    26/09/2026 isso levou o job a mais de 12 minutos so para concluir o que o
+    terceiro ano ja mostrava. O pipeline cai no cache do mesmo jeito.
     """
     bases, prefixo, freq = ((CVM_DFP_BASES, "dfp", "A") if kind == "DFP"
                             else (CVM_ITR_BASES, "itr", "T"))
@@ -262,6 +268,10 @@ def fetch_range(years: Iterable[int], kind: str,
             else:
                 falhas.append(f"{y}: {str(exc)[:120]}")
                 log.warning("CVM %s %d indisponivel: %s", kind, y, str(exc)[:200])
+                if not frames and len(falhas) >= desistir_apos:
+                    raise SourceUnavailable(
+                        f"{kind}: os {len(falhas)} primeiros anos tentados falharam por erro "
+                        f"de rede; os demais nao foram tentados. {' | '.join(falhas[:2])}")
     if not frames:
         raise SourceUnavailable(
             f"nenhum ano de {kind} obtido. nao publicados: {ausentes}; "
