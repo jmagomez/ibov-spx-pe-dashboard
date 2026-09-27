@@ -1,5 +1,5 @@
 {
-  "gerado_em_utc": "2026-09-26T23:53:58+00:00",
+  "gerado_em_utc": "2026-09-27T12:38:58+00:00",
   "estagios": [
     {
       "nome": "precos_spx",
@@ -60,7 +60,7 @@
     {
       "nome": "lucros_cvm",
       "ok": true,
-      "detalhe": "DFP 2010-12-31..2026-06-30 | ITR 2021-03-31..2026-06-30",
+      "detalhe": "CACHE de 2026-09-26T23:57:36+00:00 (0 dias); 2010-12-31..2026-06-30. CVM indisponivel agora: DFP: os 3 primeiros anos tentados falharam por erro de rede; os demais nao foram tentados. 2010: https://dados.cvm.gov.br/dados/CIA_ABERTA/DOC/DFP/DADOS/dfp_cia_aberta_2010.zip -> SourceUnavailable: https://dados.cvm. | ",
       "obs": 13979,
       "inicio": "",
       "fim": ""
@@ -99,6 +99,7 @@
     }
   ],
   "avisos": [
+    "Lucros da CVM vindos do CACHE local, coletado ha 0 dias. Sao numeros de uma coleta real anterior, nao estimativas -- mas exercicios divulgados depois dessa data NAO estao aqui.",
     "5 CNPJ(s) apontam para mais de um codigo CVM e foram RECUSADOS em vez de desempatados por criterio arbitrario."
   ],
   "vigencias": [
