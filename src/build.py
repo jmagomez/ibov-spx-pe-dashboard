@@ -588,8 +588,13 @@ def _pl_nivel(status: Status, out: pd.DataFrame, comp: pd.DataFrame,
                                         minimo=COBERTURA_MINIMA_IBOV)
             out["pl_nivel"] = serie["pl"]
             out["pl_nivel_cobertura_pct"] = serie["cobertura_pct"].where(serie["pl"].notna())
-            out["pl_nivel_pct"] = metrics.rolling_percentile(out["pl_nivel"], STAT_WINDOW)
-            out["pl_nivel_z"] = metrics.rolling_zscore(out["pl_nivel"], STAT_WINDOW)
+            # Posicao historica medida sobre L/P, nao sobre o P/L: ver
+            # ibov_nivel.posicao_historica (lucro agregado perto de zero).
+            pos = ibov_nivel.posicao_historica(serie["valor_carteira"],
+                                               serie["lucro_carteira"], STAT_WINDOW)
+            out["pl_nivel_ey"] = pos["ey"]
+            out["pl_nivel_pct"] = pos["pct"]
+            out["pl_nivel_z"] = pos["z"]
             sem_preco = sorted(set(cas["codigo"]) - set(precos.columns))
             valida = serie["pl"].dropna()
             res.update({"serie_inicio": str(valida.index.min().date()) if len(valida) else "",

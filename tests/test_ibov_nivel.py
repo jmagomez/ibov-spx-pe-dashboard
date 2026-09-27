@@ -227,3 +227,29 @@ def test_fetch_range_devolve_acoes_sem_quebrar_o_concat():
     lucros = pd.concat([dfp, itr], ignore_index=True)
     assert len(lucros) == 3 and set(lucros["freq"]) == {"A", "T"}
     assert len(acoes) == 3 and all("on" in a.columns for a in acoes)
+
+
+def test_posicao_historica_coincide_com_percentil_do_pl_quando_lucro_positivo():
+    from src import metrics
+    idx = pd.bdate_range("2020-01-01", periods=60)
+    rng = np.random.default_rng(7)
+    valor = pd.Series(100.0 + rng.normal(0, 5, 60).cumsum(), index=idx)
+    lucro = pd.Series(8.0 + rng.normal(0, 0.3, 60), index=idx)
+    pos = nv.posicao_historica(valor, lucro, 40)
+    pct_pl = metrics.rolling_percentile(valor / lucro, 40)
+    pd.testing.assert_series_equal(pos["pct"].round(9), pct_pl.round(9), check_names=False)
+
+
+def test_posicao_historica_poe_prejuizo_no_topo_e_nao_explode_o_z():
+    idx = pd.bdate_range("2020-01-01", periods=40)
+    valor = pd.Series(100.0, index=idx)
+    lucro = pd.Series(10.0, index=idx)          # P/L 10x
+    lucro.iloc[10:15] = 0.5                     # P/L 200x
+    lucro.iloc[15:20] = -2.0                    # P/L indefinido
+    lucro.iloc[-1] = 9.0                        # hoje: P/L ~11x
+    pos = nv.posicao_historica(valor, lucro, 40)
+    # hoje e mais caro que os 29 dias a 10x, mais barato que os 10 extremos
+    assert pos["pct"].iloc[-1] == pytest.approx(30 / 40 * 100)
+    # prejuizo entra na amostra (o P/L seria NaN) e fica no topo
+    assert pos["pct"].iloc[19] == pytest.approx(100.0)
+    assert np.isfinite(pos["z"].iloc[-1]) and abs(pos["z"].iloc[-1]) < 1
