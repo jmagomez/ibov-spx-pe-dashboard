@@ -57,6 +57,11 @@ minutos tentando ano a ano (~40 s por ano) antes de cair no cache. `cvm.fetch_ra
 disjuntor: três anos seguidos com erro de rede e nenhum acerto encerram a coleta. Coberto por teste;
 ainda não exercitado no runner com o portal fora do ar.
 
+**Um defeito que só apareceu olhando o gráfico renderizado.** Nos oito meses de 2016 em que o P/L
+não existe, o Chart.js ligava o último ponto antes do buraco (~50x) ao primeiro depois (~126x) com uma
+reta — uma rampa que parecia dado. `render._serie` passou a interromper a linha em buraco de mais de
+15 dias, em todas as séries.
+
 **O que continua dependendo de sorte:** se o portal estiver fora na primeira execução depois do
 merge, o cache usado será o de `main`, com ITR só desde 2021, e o histórico sai como antes até a
 próxima coleta que funcionar. O painel avisa quando usa cache.
@@ -174,7 +179,7 @@ da ultima observacao dentro do arquivo.
 
 | Componente | Evidencia |
 |---|---|
-| Testes de calculo | 136 testes passam (`pytest tests -q`), inclusive com o pandas 2.2.3 do runner |
+| Testes de calculo | 137 testes passam (`pytest tests -q`), inclusive com o pandas 2.2.3 do runner |
 | Orquestracao e diagnostico | `status.json` gerado, com estagio, situacao e detalhe por fonte |
 | Renderizacao do dashboard | `docs/index.html` produzido mesmo com todas as fontes falhando |
 | Degradacao explicita | Graficos vazios com a causa escrita; nenhum numero inventado |
