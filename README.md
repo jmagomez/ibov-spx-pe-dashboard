@@ -25,8 +25,9 @@ esse LPA acumulado em 12 meses. É a mesma construção usada por provedores de 
 
 1. A B3 não publica, em formato aberto, o **histórico de composição** da carteira desde 2010.
    Só a carteira vigente está disponível.
-2. A base de **ITR da CVM cobre apenas os últimos cinco anos**. Lucro trimestral brasileiro
-   desde 2010 não está publicamente disponível — apenas o anual, via DFP.
+2. A CVM publica ITR (1º a 3º trimestre) desde 2011 e DFP (anual) desde 2010; o 4º trimestre
+   não existe como formulário e é derivado do anual. Até 26/09/2026 este README dizia que o ITR
+   só cobria cinco anos — não é verdade, e o erro custava caro (ver `ESTADO.md`).
 3. Não há série pública de LPA agregado do Ibovespa análoga à da S&P DJI.
 
 O que o projeto faz com isso: calcula o **P/L do Ibovespa em nível** com a carteira vigente da
@@ -52,7 +53,7 @@ Detalhamento completo em [`LIMITACOES.md`](LIMITACOES.md).
 | P/E operating | S&P 500 | Idem, com LPA operating |
 | CAPE (Shiller P/E) | S&P 500 | Planilha `ie_data` de Robert Shiller |
 | Earnings yield | S&P 500 | 1 ÷ (P/E), em % a.a. |
-| Z-score e percentil | ambos | Janela móvel de 10 anos contra a própria distribuição |
+| Z-score e percentil | ambos | Janela móvel de 10 anos contra a própria distribuição (no Ibovespa, sobre L/P: ver `METODOLOGIA.md` §6) |
 | Percentil na história longa | S&P 500 | P/E e CAPE contra toda a planilha de Shiller (desde 1871) |
 | LPA 12m, variação a/a | S&P 500 | Sinaliza crescimento atípico do lucro (itens não recorrentes) |
 | Rendimento do lucro − juro real | S&P 500 | `earnings yield − TIPS 10a` e `1/CAPE − TIPS 10a`, em p.p. (FRED) |

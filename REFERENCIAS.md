@@ -1,6 +1,6 @@
 # Referências
 
-Fontes consultadas e utilizadas. Última verificação dos endpoints: **27/09/2026**.
+Fontes consultadas e utilizadas. Última verificação dos endpoints: **26/09/2026**.
 
 ## Fontes de dados usadas pelo pipeline
 
@@ -21,7 +21,7 @@ Fontes consultadas e utilizadas. Última verificação dos endpoints: **27/09/20
 
 | Fonte | O que foi conferido | Diferença de construção |
 |---|---|---|
-| Investidor10 — P/L do Ibovespa | P/L de hoje e histórico mensal desde 07/2016, contra `pl_nivel` (27/09/2026: 10,80x lá, 11,25x aqui) | Universo de todas as ações com liquidez acima de R$ 1 mi/dia, não só o Ibovespa; média ponderada dos P/L individuais; defasagem de divulgação não documentada |
+| Investidor10 — [P/L do Ibovespa](https://investidor10.com.br/indices/pl-ibovespa/) | P/L de hoje e histórico mensal desde 07/2016, contra `pl_nivel` (26/09/2026: 10,80x lá, 11,25x aqui; correlação de postos de 0,89 em 118 meses). A conferência revelou que o pipeline coletava ITR só de cinco anos | Universo de todas as ações com liquidez acima de R$ 1 mi/dia, não só o Ibovespa; média ponderada dos P/L individuais; defasagem de divulgação não documentada |
 
 Número de agregador comercial não entra em nenhuma série: a metodologia deles não é
 reproduzível. Serve só para dizer se a ordem de grandeza e a direção batem — ver `ESTADO.md`.
