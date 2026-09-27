@@ -316,14 +316,20 @@ code{background:var(--tint);padding:1px 5px;border-radius:3px;font-size:12.5px}
      atribuivel a controladora). A fracao e a quantidade teorica da B3 sobre as acoes em circulacao da
      CVM: o indice carrega so parte de cada companhia, e o lucro entra na mesma proporcao. Lucro
      point-in-time (75 dias apos o trimestre, 92 apos o exercicio). O historico mantem a carteira de
-     hoje congelada: e o P/L que ela teria tido, nao o do indice na epoca. Preco dos papeis: yfinance.</p>
+     hoje congelada: e o P/L que ela teria tido, nao o do indice na epoca. Preco dos papeis: yfinance.
+     Escala logaritmica: quando o lucro agregado se aproxima de zero o P/L explode (~140x entre 12/2016
+     e 03/2017, apos as baixas de Petrobras e Vale no 4T15), e com lucro negativo (04 a 11/2016) ele
+     nao existe - o grafico fica vazio.</p>
   <p class="sub" id="pl-b3"></p>
   <div id="w-ibov"><canvas id="c-ibov"></canvas></div>
 </div>
 <div class="chartbox">
   <h3>Posicao do P/L na propria historia (z-score, janela de 10 anos)</h3>
-  <p class="sub">Quantos desvios-padrao o P/L atual esta da propria media de 10 anos.
-     Zero e a media da janela; nao ha nivel "certo".</p>
+  <p class="sub">Calculado sobre o rendimento de lucro (L/P), com o sinal invertido: positivo = mais caro
+     que a media de 10 anos. Sobre o proprio P/L o z-score nao serve - os meses de lucro perto de zero
+     levam a media a ~18x e o desvio-padrao a ~22x (09/2026). O percentil (cartao e grafico comparativo) usa o
+     mesmo L/P, o que inclui os meses de prejuizo como os mais caros da janela. Zero e a media da
+     janela; nao ha nivel "certo".</p>
   <div id="w-ibovz"><canvas id="c-ibovz"></canvas></div>
 </div>
 <h3 style="font-size:15px;color:var(--navy2);margin:22px 0 4px">De onde vem o lucro: as 20 maiores posicoes</h3>
@@ -454,7 +460,8 @@ function linha(canvasId, wrapId, series, opts){
       scales:{
         x:{type:'time', time:{unit:'year'}, grid:{display:false},
            ticks:{font:{size:11}, color:c('--gray')}},
-        y:{grid:{color:c('--line')}, ticks:{font:{size:11}, color:c('--gray')},
+        y:{type:(opts&&opts.log)?'logarithmic':'linear',
+           grid:{color:c('--line')}, ticks:{font:{size:11}, color:c('--gray')},
            title:{display:!!(opts&&opts.y), text:(opts&&opts.y)||'',
                   font:{size:11}, color:c('--gray')}}
       }
@@ -537,9 +544,9 @@ linha('c-premio','w-premio',[
 ], {y:'pontos percentuais'});
 linha('c-ibov','w-ibov',[
   {label:'Ibovespa - P/L 12m da carteira atual', data:DADOS.ibov_pl, cor:c('--gold'), w:1.8},
-], {y:'vezes'});
+], {y:'vezes (escala logaritmica)', log:true});
 linha('c-ibovz','w-ibovz',[
-  {label:'Ibovespa - z-score do P/L', data:(DADOS.ibov_pl_z.length ? DADOS.ibov_pl_z : DADOS.ibov_z),
+  {label:'Ibovespa - z-score (sobre L/P, sinal invertido)', data:(DADOS.ibov_pl_z.length ? DADOS.ibov_pl_z : DADOS.ibov_z),
    cor:c('--gold'), w:1.8},
 ], {y:'desvios-padrao'});
 linha('c-ibovold','w-ibovold',[
