@@ -12,7 +12,9 @@ isto é, a capitalização agregada dos componentes dividida pelo lucro agregado
 componentes, com os mesmos pesos. É um múltiplo **ponderado por capitalização**, não a média
 dos P/E individuais. A distinção não é acadêmica: a média simples dos P/E de 500 empresas é
 dominada por casos de lucro próximo de zero, que produzem P/E arbitrariamente grandes, e não
-descreve o índice. Todos os provedores relevantes usam a forma agregada acima.
+descreve o índice. A S&P Dow Jones Indices usa a forma agregada acima. Nem todo agregador faz
+o mesmo: o Investidor10, conferido em 26/09/2026, publica para o Ibovespa uma média ponderada de
+P/L individuais — e a diferença entre as duas construções aparece na comparação (`ESTADO.md`).
 
 ## 2. S&P 500 — P/E em nível
 
@@ -130,8 +132,8 @@ de fato tem:
   derivado como `exercício anual (DFP) − (1T + 2T + 3T)`, só quando as quatro peças existem e o
   exercício fecha em dezembro. Trimestre ausente não é estimado: a janela que dependeria dele
   fica vazia.
-- **Exercício anual da DFP**, onde não há LTM válido (antes do fim de 2021, que é quando o ITR de cinco
-  anos começa a formar janelas completas, e em companhias com buraco no ITR ou exercício fora de
+- **Exercício anual da DFP**, onde não há LTM válido (em 2010-11, antes de o ITR, publicado desde
+  2011, formar a primeira janela completa, e em companhias com buraco no ITR ou exercício fora de
   dezembro).
 
 Nas datas de dezembro as duas coincidem por construção — é a identidade que os testes usam como
@@ -139,6 +141,14 @@ prova. Lucro exatamente zero é tratado como dado ausente (DRE consolidada vazia
 
 **Defasagem.** A série do Ibovespa usa exclusivamente a convenção point-in-time: 75 dias para
 trimestres do ITR e 92 dias para observações de dezembro (exercício anual e 4T derivado).
+
+**P/L agregado com lucro perto de zero.** O P/L é Σ valor / Σ lucro, a mesma construção da S&P DJI
+(que publicou P/E *as reported* acima de 100x em 2009). Quando companhias grandes da carteira têm
+prejuízo, o denominador encolhe e o P/L explode: com a carteira de 09/2026, as baixas de Petrobras e
+Vale no 4T15 levam o agregado a ~140x entre 12/2016 e 03/2017, e de 04/2016 a meados de 12/2016 o lucro da
+carteira é **negativo** — o P/L não existe e a série fica vazia. O 1T20 (baixa da Petrobras) leva o
+P/L a 25-40x entre 06/2020 e 03/2021. Isso não é defeito: é o que o lucro contábil agregado foi. Mas
+muda como as estatísticas de posição precisam ser calculadas (seção 6).
 
 **A série anterior** (índice base 100 sobre lucro total) continua publicada em `ibov.csv`
 (`valuation_idx`) e num gráfico secundário, para comparação. Não deve ser lida como P/L.
@@ -165,6 +175,14 @@ porque o gráfico é lido e a nota não.
 **Z-score** e **percentil** são calculados contra janela móvel de 2.520 pregões (~10 anos),
 com mínimo de metade da janela. Servem para responder "onde este múltiplo está em relação à
 sua própria história recente", que é uma pergunta melhor que "o múltiplo está alto".
+
+**Para o Ibovespa, sobre L/P, não sobre o P/L.** Com os meses de lucro perto de zero (seção 4), a
+média de 10 anos do P/L vai a ~18x e o desvio-padrão a ~22x (09/2026): o z-score do P/L deixa de dizer
+qualquer coisa. E o percentil do P/L descarta justamente os meses mais caros, os de prejuízo, em que o
+P/L é indefinido. O rendimento de lucro L/P é contínuo na passagem por zero. O percentil de −L/P
+coincide com o do P/L sempre que o lucro é positivo e põe os meses de prejuízo no topo; o z-score de
+−L/P não é dominado pelos extremos. Sinal invertido nos dois, para manter a leitura "alto = caro"
+(`ibov_nivel.posicao_historica`; colunas `pl_nivel_pct`, `pl_nivel_z` e `pl_nivel_ey` em `ibov.csv`).
 
 Limitação incontornável: a janela de 10 anos sobre uma série que começa em 2010 significa
 que o percentil só passa a existir por volta de 2015, e que ele é medido contra um período
