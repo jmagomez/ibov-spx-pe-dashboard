@@ -189,3 +189,17 @@ def test_sem_fred_o_tesouro_responde_e_a_fonte_fica_registrada():
         s = juros.fetch_serie("tips10")
     assert s.iloc[-1] == pytest.approx(2.65)
     assert "Tesouro" in s.attrs["fonte"]
+
+
+def test_grafico_interrompe_a_linha_onde_a_serie_some():
+    """P/L do Ibovespa em 2016: oito meses sem valor viravam uma rampa no grafico."""
+    from src import render
+    idx = pd.bdate_range("2016-01-01", "2016-12-31")
+    s = pd.Series(20.0, index=idx)
+    s.loc["2016-04-01":"2016-12-13"] = np.nan
+    pts = render._serie(pd.DataFrame({"pl": s}), "pl")
+    nulos = [p for p in pts if p[1] is None]
+    assert len(nulos) == 1 and nulos[0][0] > "2016-03-28" and nulos[0][0] < "2016-04-05"
+    # pregao a pregao (fim de semana, feriado) nao e lacuna
+    assert render._serie(pd.DataFrame({"pl": pd.Series(1.0, index=idx)}), "pl")[1][1] == 1.0
+    assert all(p[1] is not None for p in render._serie(pd.DataFrame({"pl": pd.Series(1.0, index=idx)}), "pl"))

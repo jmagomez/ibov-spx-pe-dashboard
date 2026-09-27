@@ -22,11 +22,30 @@ log = logging.getLogger("render")
 PASSO_PLOT = 3
 
 
+# Buraco maior que isto (dias corridos) entre dois pontos plotados e lacuna de
+# dado, nao fim de semana nem amostragem: o grafico precisa interromper a linha.
+LACUNA_DIAS = 15
+
+
 def _serie(df: pd.DataFrame, col: str) -> list:
+    """Pontos [data, valor] para o grafico, com [data, None] onde a serie some.
+
+    Sem o None, o Chart.js liga o ultimo ponto antes do buraco ao primeiro
+    depois dele, e o trecho sem dado vira uma reta que parece dado. Foi o que
+    aconteceu com o P/L do Ibovespa em 2016: com lucro agregado negativo, o P/L
+    nao existe por oito meses, e o grafico desenhava uma rampa de 50x a 126x.
+    """
     if df.empty or col not in df.columns:
         return []
     s = df[col].dropna().iloc[::PASSO_PLOT]
-    return [[d.strftime("%Y-%m-%d"), round(float(v), 4)] for d, v in s.items()]
+    out = []
+    anterior = None
+    for d, v in s.items():
+        if anterior is not None and (d - anterior).days > LACUNA_DIAS:
+            out.append([(anterior + pd.Timedelta(days=1)).strftime("%Y-%m-%d"), None])
+        out.append([d.strftime("%Y-%m-%d"), round(float(v), 4)])
+        anterior = d
+    return out
 
 
 def _load(nome: str) -> pd.DataFrame:
@@ -455,7 +474,8 @@ function linha(canvasId, wrapId, series, opts){
       interaction:{mode:'index', intersect:false},
       plugins:{
         legend:{display:series.length>1, labels:{boxWidth:12, font:{size:11.5}}},
-        tooltip:{callbacks:{label:x => x.dataset.label + ': ' + Number(x.parsed.y).toFixed(2)}}
+        tooltip:{filter:x => x.parsed.y !== null && isFinite(x.parsed.y),
+                 callbacks:{label:x => x.dataset.label + ': ' + Number(x.parsed.y).toFixed(2)}}
       },
       scales:{
         x:{type:'time', time:{unit:'year'}, grid:{display:false},
