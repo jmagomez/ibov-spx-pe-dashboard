@@ -253,3 +253,36 @@ def test_posicao_historica_poe_prejuizo_no_topo_e_nao_explode_o_z():
     # prejuizo entra na amostra (o P/L seria NaN) e fica no topo
     assert pos["pct"].iloc[19] == pytest.approx(100.0)
     assert np.isfinite(pos["z"].iloc[-1]) and abs(pos["z"].iloc[-1]) < 1
+
+
+def test_fetch_range_desiste_cedo_quando_o_portal_esta_fora_do_ar():
+    from unittest import mock
+    chamadas = []
+
+    def fora(bases, arquivo):
+        chamadas.append(arquivo)
+        raise cvm.SourceUnavailable("Connection to dados.cvm.gov.br timed out")
+
+    with mock.patch.object(cvm, "_baixar", side_effect=fora):
+        with pytest.raises(cvm.SourceUnavailable, match="nao foram tentados"):
+            cvm.fetch_range(range(2010, 2027), "DFP")
+    assert len(chamadas) == 3
+
+
+def test_fetch_range_nao_desiste_por_404_nem_depois_de_um_acerto():
+    from unittest import mock
+
+    def misto(bases, arquivo):
+        ano = int(arquivo[-8:-4])
+        if ano == 2026:
+            raise cvm.SourceUnavailable("404 Not Found")
+        if ano == 2010:
+            return b"", arquivo
+        raise cvm.SourceUnavailable("timed out")
+
+    with mock.patch.object(cvm, "_baixar", side_effect=misto), \
+         mock.patch.object(cvm, "_extract_profit", return_value=pd.DataFrame({"x": [1]})), \
+         mock.patch.object(cvm, "_read_zip_csv", return_value=pd.DataFrame()):
+        df = cvm.fetch_range(range(2010, 2027), "DFP")
+    assert len(df) == 1 and df.attrs["anos_ausentes"] == [2026]
+    assert len(df.attrs["anos_falhos"]) == 15
