@@ -235,7 +235,7 @@ def posicao_historica(valor: pd.Series, lucro: pd.Series, janela: int) -> pd.Dat
 
     O P/L agregado explode quando o lucro da carteira se aproxima de zero: com
     a carteira de hoje, as baixas de Petrobras e Vale no 4T15 levam o P/L a
-    ~140x entre 12/2016 e 03/2017, e o lucro fica NEGATIVO entre 04 e 11/2016
+    ~140x entre 12/2016 e 03/2017, e o lucro fica NEGATIVO de 04/2016 a meados de 12/2016
     (P/L indefinido). Dois efeitos disso sobre as estatisticas de posicao:
 
       * a media e o desvio-padrao de 10 anos do P/L passam a ser dominados por
