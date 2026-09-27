@@ -41,6 +41,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from . import metrics
+
 # Composicao das units da carteira, em acoes (ON, PN). A B3 publica a unit como
 # um papel; a CVM conta acoes. Unit fora desta tabela e EXCLUIDA do P/L em
 # nivel (e aparece no relatorio), em vez de contada com composicao presumida.
@@ -226,3 +228,30 @@ def pl_pelo_redutor(indice: float, redutor: float, carteira: pd.DataFrame,
         "cobertura_pct": cob * 100.0,
         "tabela": pd.DataFrame(linhas),
     }
+
+
+def posicao_historica(valor: pd.Series, lucro: pd.Series, janela: int) -> pd.DataFrame:
+    """Percentil e z-score do P/L, medidos sobre o rendimento de lucro L/P.
+
+    O P/L agregado explode quando o lucro da carteira se aproxima de zero: com
+    a carteira de hoje, as baixas de Petrobras e Vale no 4T15 levam o P/L a
+    ~140x entre 12/2016 e 03/2017, e o lucro fica NEGATIVO entre 04 e 11/2016
+    (P/L indefinido). Dois efeitos disso sobre as estatisticas de posicao:
+
+      * a media e o desvio-padrao de 10 anos do P/L passam a ser dominados por
+        esses meses (media ~18x, desvio ~22x em 09/2026), e o z-score do P/L
+        perde sentido;
+      * os meses de lucro negativo, que sao os mais "caros" da serie, somem da
+        amostra do percentil porque o P/L deles e NaN.
+
+    L/P e continuo na passagem por zero. O percentil de -L/P coincide com o do
+    P/L onde o lucro e positivo (a ordem se preserva) e inclui os meses de
+    prejuizo no topo; o z-score de -L/P nao e dominado pelos extremos.
+    Sinal invertido nos dois para manter a leitura: alto = caro.
+    """
+    ey = (lucro / valor.where(valor > 0)) * 100.0
+    return pd.DataFrame({
+        "ey": ey,
+        "pct": metrics.rolling_percentile(-ey, janela),
+        "z": metrics.rolling_zscore(-ey, janela),
+    })
