@@ -318,7 +318,7 @@ code{background:var(--tint);padding:1px 5px;border-radius:3px;font-size:12.5px}
      point-in-time (75 dias apos o trimestre, 92 apos o exercicio). O historico mantem a carteira de
      hoje congelada: e o P/L que ela teria tido, nao o do indice na epoca. Preco dos papeis: yfinance.
      Escala logaritmica: quando o lucro agregado se aproxima de zero o P/L explode (~140x entre 12/2016
-     e 03/2017, apos as baixas de Petrobras e Vale no 4T15), e com lucro negativo (04 a 11/2016) ele
+     e 03/2017, apos as baixas de Petrobras e Vale no 4T15), e com lucro negativo (04/2016 a meados de 12/2016) ele
      nao existe - o grafico fica vazio.</p>
   <p class="sub" id="pl-b3"></p>
   <div id="w-ibov"><canvas id="c-ibov"></canvas></div>
