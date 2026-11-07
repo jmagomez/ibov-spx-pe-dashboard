@@ -1,5 +1,5 @@
 {
-  "gerado_em_utc": "2026-11-06T18:50:35+00:00",
+  "gerado_em_utc": "2026-11-07T17:22:41+00:00",
   "estagios": [
     {
       "nome": "precos_spx",
@@ -28,15 +28,15 @@
     {
       "nome": "juros_fred",
       "ok": true,
-      "detalhe": "Treasury 10a (nominal) e TIPS 10a (real) -- fonte: Tesouro dos EUA (home.treasury.gov); ultimo: UST 4.84% | TIPS 2.60% em 2026-11-05",
-      "obs": 4214,
+      "detalhe": "Treasury 10a (nominal) e TIPS 10a (real) -- fonte: Tesouro dos EUA (home.treasury.gov); ultimo: UST 4.86% | TIPS 2.63% em 2026-11-06",
+      "obs": 4215,
       "inicio": "2010-01-04",
-      "fim": "2026-11-05"
+      "fim": "2026-11-06"
     },
     {
       "nome": "historia_longa_shiller",
       "ok": true,
-      "detalhe": "P/E 25.1 no percentil 92 desde 1871 (mediana 15.1); CAPE 40.6 no percentil 99 desde 1881 (max 44.2 em 1999-12)",
+      "detalhe": "P/E 25.0 no percentil 92 desde 1871 (mediana 15.1); CAPE 40.6 no percentil 99 desde 1881 (max 44.2 em 1999-12)",
       "obs": 1866,
       "inicio": "1871-01-01",
       "fim": "2026-06-01"
@@ -69,7 +69,7 @@
       "nome": "cadastro_b3",
       "ok": true,
       "detalhe": "ponte codigo de negociacao -> CNPJ",
-      "obs": 3532,
+      "obs": 3533,
       "inicio": "",
       "fim": ""
     },
@@ -92,7 +92,7 @@
     {
       "nome": "pl_ibov_nivel",
       "ok": true,
-      "detalhe": "P/L 12m 10.18x em 2026-11-05 (indice x redutor; cobertura 98.6% do peso); serie por papel 2011-04-04..2026-11-06, ultimo 10.31x; numerador por papel x B3: -0.00%; excluidas 1 (0.1% do peso)",
+      "detalhe": "P/L 12m 10.32x em 2026-11-06 (indice x redutor; cobertura 98.6% do peso); serie por papel 2011-04-04..2026-11-06, ultimo 10.32x; numerador por papel x B3: -0.01%; excluidas 1 (0.1% do peso)",
       "obs": 3691,
       "inicio": "",
       "fim": ""
@@ -118,16 +118,16 @@
     },
     {
       "fonte": "ust10",
-      "ultima_observacao": "2026-11-05",
-      "vigente_ate": "2026-11-15",
-      "defasagem_dias": 1,
+      "ultima_observacao": "2026-11-06",
+      "vigente_ate": "2026-11-16",
+      "defasagem_dias": 0,
       "vencida": false
     },
     {
       "fonte": "tips10",
-      "ultima_observacao": "2026-11-05",
-      "vigente_ate": "2026-11-15",
-      "defasagem_dias": 1,
+      "ultima_observacao": "2026-11-06",
+      "vigente_ate": "2026-11-16",
+      "defasagem_dias": 0,
       "vencida": false
     }
   ],
@@ -180,8 +180,8 @@
   "dfp_ausentes": [],
   "historico_longo": {
     "pe": {
-      "atual": 25.08,
-      "percentil": 92.4,
+      "atual": 24.97,
+      "percentil": 92.3,
       "mediana": 15.08,
       "media": 16.22,
       "p10": 9.21,
@@ -191,7 +191,7 @@
       "inicio": "1871-01-01",
       "fim": "2026-06-01",
       "n": 1866,
-      "acima_do_atual": 142,
+      "acima_do_atual": 143,
       "data_atual": "2026-11-06"
     },
     "cape": {
@@ -210,8 +210,8 @@
       "data_atual": "2026-11-06"
     },
     "premio_cape": {
-      "atual": -0.14,
-      "percentil": 1.0,
+      "atual": -0.17,
+      "percentil": 0.8,
       "mediana": 3.3,
       "media": 2.96,
       "p10": 0.79,
@@ -221,29 +221,29 @@
       "inicio": "2010-01-04",
       "fim": "2026-11-06",
       "n": 4238,
-      "acima_do_atual": 4197,
+      "acima_do_atual": 4205,
       "data_atual": "2026-11-06"
     }
   },
   "pl_ibov": {
-    "pl": 10.1761,
-    "valor_carteira": 2326202290281.32,
-    "valor_coberto": 2292751501347.0737,
+    "pl": 10.317,
+    "valor_carteira": 2358493547885.049,
+    "valor_coberto": 2324484070924.547,
     "lucro_coberto": 225306663269.4065,
-    "cobertura_pct": 98.562,
-    "data": "2026-11-05",
-    "data_carteira": "2026-11-06",
-    "indice": 166192.0,
+    "cobertura_pct": 98.558,
+    "data": "2026-11-06",
+    "data_carteira": "2026-11-09",
+    "indice": 168499.0,
     "redutor": 13997077.41817488,
     "serie_inicio": "2011-04-04",
     "serie_fim": "2026-11-06",
-    "serie_ultimo": 10.313,
+    "serie_ultimo": 10.316,
     "papeis_sem_preco": [],
-    "checagem_numerador_pct": -0.0,
+    "checagem_numerador_pct": -0.01,
     "excluidas": [
       "TEND3: f implausivel (q=118,671,153; acoes=57,430)"
     ],
-    "peso_excluido_pct": 0.083
+    "peso_excluido_pct": 0.085
   },
   "reparo_validade": {
     "eps_ttm": {
