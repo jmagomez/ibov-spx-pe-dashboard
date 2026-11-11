@@ -1,19 +1,19 @@
 {
-  "gerado_em_utc": "2026-11-10T19:16:21+00:00",
+  "gerado_em_utc": "2026-11-11T19:13:03+00:00",
   "estagios": [
     {
       "nome": "precos_spx",
       "ok": true,
-      "detalhe": "provedor: yfinance; horizonte: 16.8 anos (4240 pregoes)",
-      "obs": 4240,
+      "detalhe": "provedor: yfinance; horizonte: 16.9 anos (4241 pregoes)",
+      "obs": 4241,
       "inicio": "2010-01-04",
-      "fim": "2026-11-10"
+      "fim": "2026-11-11"
     },
     {
       "nome": "eps_spx",
       "ok": true,
       "detalhe": "fonte: planilha Shiller (coluna E, LPA 12m mensal) -- S&P DJI indisponivel; espelho: ...3/downloads/70fec4f5-727f-4e53-b5f1-179af109c5fa/ie_data.xls; dado ate 2026-06-01",
-      "obs": 4240,
+      "obs": 4241,
       "inicio": "",
       "fim": ""
     },
@@ -28,15 +28,15 @@
     {
       "nome": "juros_fred",
       "ok": true,
-      "detalhe": "Treasury 10a (nominal) e TIPS 10a (real) -- fonte: Tesouro dos EUA (home.treasury.gov); ultimo: UST 4.88% | TIPS 2.66% em 2026-11-09",
-      "obs": 4216,
+      "detalhe": "Treasury 10a (nominal) e TIPS 10a (real) -- fonte: Tesouro dos EUA (home.treasury.gov); ultimo: UST 4.98% | TIPS 2.78% em 2026-11-10",
+      "obs": 4217,
       "inicio": "2010-01-04",
-      "fim": "2026-11-09"
+      "fim": "2026-11-10"
     },
     {
       "nome": "historia_longa_shiller",
       "ok": true,
-      "detalhe": "P/E 25.4 no percentil 93 desde 1871 (mediana 15.1); CAPE 40.6 no percentil 99 desde 1881 (max 44.2 em 1999-12)",
+      "detalhe": "P/E 25.8 no percentil 93 desde 1871 (mediana 15.1); CAPE 40.6 no percentil 99 desde 1881 (max 44.2 em 1999-12)",
       "obs": 1866,
       "inicio": "1871-01-01",
       "fim": "2026-06-01"
@@ -44,10 +44,10 @@
     {
       "nome": "precos_ibov",
       "ok": true,
-      "detalhe": "provedor: yfinance; horizonte: 16.8 anos (4179 pregoes)",
-      "obs": 4179,
+      "detalhe": "provedor: yfinance; horizonte: 16.9 anos (4180 pregoes)",
+      "obs": 4180,
       "inicio": "2010-01-04",
-      "fim": "2026-11-10"
+      "fim": "2026-11-11"
     },
     {
       "nome": "composicao_ibov_b3",
@@ -69,7 +69,7 @@
       "nome": "cadastro_b3",
       "ok": true,
       "detalhe": "ponte codigo de negociacao -> CNPJ",
-      "obs": 3534,
+      "obs": 3536,
       "inicio": "",
       "fim": ""
     },
@@ -85,15 +85,15 @@
       "nome": "pe_ibov",
       "ok": true,
       "detalhe": "cobertura da carteira 100.0%; 4033 linhas de lucro de 74 companhias; exigido >= 80% do PESO em cada data (coberto: min 86.3%, mediana 96.3%); indicador normalizado (base 100), NAO e P/E em nivel -- ver METODOLOGIA.md secao 4",
-      "obs": 3870,
+      "obs": 3871,
       "inicio": "",
       "fim": ""
     },
     {
       "nome": "pl_ibov_nivel",
       "ok": true,
-      "detalhe": "P/L 12m 10.53x em 2026-11-09 (indice x redutor; cobertura 98.5% do peso); serie por papel 2011-04-04..2026-11-10, ultimo 10.45x; numerador por papel x B3: +0.00%; excluidas 1 (0.1% do peso)",
-      "obs": 3693,
+      "detalhe": "P/L 12m 10.46x em 2026-11-10 (indice x redutor; cobertura 98.5% do peso); serie por papel 2011-04-04..2026-11-11, ultimo 10.51x; numerador por papel x B3: +0.12%; excluidas 1 (0.1% do peso)",
+      "obs": 3694,
       "inicio": "",
       "fim": ""
     }
@@ -106,27 +106,27 @@
       "fonte": "eps_spx",
       "ultima_observacao": "2026-06-01",
       "vigente_ate": "2026-12-28",
-      "defasagem_dias": 162,
+      "defasagem_dias": 163,
       "vencida": false
     },
     {
       "fonte": "cape_shiller",
       "ultima_observacao": "2026-09-01",
       "vigente_ate": "2026-12-30",
-      "defasagem_dias": 70,
+      "defasagem_dias": 71,
       "vencida": false
     },
     {
       "fonte": "ust10",
-      "ultima_observacao": "2026-11-09",
-      "vigente_ate": "2026-11-19",
+      "ultima_observacao": "2026-11-10",
+      "vigente_ate": "2026-11-20",
       "defasagem_dias": 1,
       "vencida": false
     },
     {
       "fonte": "tips10",
-      "ultima_observacao": "2026-11-09",
-      "vigente_ate": "2026-11-19",
+      "ultima_observacao": "2026-11-10",
+      "vigente_ate": "2026-11-20",
       "defasagem_dias": 1,
       "vencida": false
     }
@@ -180,8 +180,8 @@
   "dfp_ausentes": [],
   "historico_longo": {
     "pe": {
-      "atual": 25.39,
-      "percentil": 92.8,
+      "atual": 25.82,
+      "percentil": 93.0,
       "mediana": 15.08,
       "media": 16.22,
       "p10": 9.21,
@@ -191,8 +191,8 @@
       "inicio": "1871-01-01",
       "fim": "2026-06-01",
       "n": 1866,
-      "acima_do_atual": 135,
-      "data_atual": "2026-11-10"
+      "acima_do_atual": 130,
+      "data_atual": "2026-11-11"
     },
     "cape": {
       "atual": 40.58,
@@ -207,11 +207,11 @@
       "fim": "2026-09-01",
       "n": 1749,
       "acima_do_atual": 20,
-      "data_atual": "2026-11-10"
+      "data_atual": "2026-11-11"
     },
     "premio_cape": {
-      "atual": -0.2,
-      "percentil": 0.7,
+      "atual": -0.32,
+      "percentil": 0.4,
       "mediana": 3.3,
       "media": 2.96,
       "p10": 0.78,
@@ -219,31 +219,31 @@
       "maximo": 5.64,
       "data_maximo": "2012-11-08",
       "inicio": "2010-01-04",
-      "fim": "2026-11-10",
-      "n": 4240,
-      "acima_do_atual": 4212,
-      "data_atual": "2026-11-10"
+      "fim": "2026-11-11",
+      "n": 4241,
+      "acima_do_atual": 4222,
+      "data_atual": "2026-11-11"
     }
   },
   "pl_ibov": {
-    "pl": 10.5267,
-    "valor_carteira": 2410728965772.8936,
-    "valor_coberto": 2375749288479.5283,
+    "pl": 10.4561,
+    "valor_carteira": 2395410241554.1846,
+    "valor_coberto": 2359814445364.6895,
     "lucro_coberto": 225687409028.9402,
-    "cobertura_pct": 98.549,
-    "data": "2026-11-09",
-    "data_carteira": "2026-11-10",
-    "indice": 172236.0,
-    "redutor": 13996661.35867585,
+    "cobertura_pct": 98.514,
+    "data": "2026-11-10",
+    "data_carteira": "2026-11-11",
+    "indice": 171337.0,
+    "redutor": 13980694.43000744,
     "serie_inicio": "2011-04-04",
-    "serie_fim": "2026-11-10",
-    "serie_ultimo": 10.445,
+    "serie_fim": "2026-11-11",
+    "serie_ultimo": 10.513,
     "papeis_sem_preco": [],
-    "checagem_numerador_pct": 0.0,
+    "checagem_numerador_pct": 0.12,
     "excluidas": [
       "VIVA3: f implausivel (q=123,861,677; acoes=81,668,477)"
     ],
-    "peso_excluido_pct": 0.093
+    "peso_excluido_pct": 0.092
   },
   "reparo_validade": {
     "eps_ttm": {
