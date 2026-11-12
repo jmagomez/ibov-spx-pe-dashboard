@@ -1,19 +1,19 @@
 {
-  "gerado_em_utc": "2026-11-11T19:13:03+00:00",
+  "gerado_em_utc": "2026-11-12T19:30:00+00:00",
   "estagios": [
     {
       "nome": "precos_spx",
       "ok": true,
-      "detalhe": "provedor: yfinance; horizonte: 16.9 anos (4241 pregoes)",
-      "obs": 4241,
+      "detalhe": "provedor: yfinance; horizonte: 16.9 anos (4242 pregoes)",
+      "obs": 4242,
       "inicio": "2010-01-04",
-      "fim": "2026-11-11"
+      "fim": "2026-11-12"
     },
     {
       "nome": "eps_spx",
       "ok": true,
       "detalhe": "fonte: planilha Shiller (coluna E, LPA 12m mensal) -- S&P DJI indisponivel; espelho: ...3/downloads/70fec4f5-727f-4e53-b5f1-179af109c5fa/ie_data.xls; dado ate 2026-06-01",
-      "obs": 4241,
+      "obs": 4242,
       "inicio": "",
       "fim": ""
     },
@@ -44,10 +44,10 @@
     {
       "nome": "precos_ibov",
       "ok": true,
-      "detalhe": "provedor: yfinance; horizonte: 16.9 anos (4180 pregoes)",
-      "obs": 4180,
+      "detalhe": "provedor: yfinance; horizonte: 16.9 anos (4181 pregoes)",
+      "obs": 4181,
       "inicio": "2010-01-04",
-      "fim": "2026-11-11"
+      "fim": "2026-11-12"
     },
     {
       "nome": "composicao_ibov_b3",
@@ -84,16 +84,16 @@
     {
       "nome": "pe_ibov",
       "ok": true,
-      "detalhe": "cobertura da carteira 100.0%; 4033 linhas de lucro de 74 companhias; exigido >= 80% do PESO em cada data (coberto: min 86.3%, mediana 96.3%); indicador normalizado (base 100), NAO e P/E em nivel -- ver METODOLOGIA.md secao 4",
-      "obs": 3871,
+      "detalhe": "cobertura da carteira 100.0%; 4033 linhas de lucro de 74 companhias; exigido >= 80% do PESO em cada data (coberto: min 86.2%, mediana 96.2%); indicador normalizado (base 100), NAO e P/E em nivel -- ver METODOLOGIA.md secao 4",
+      "obs": 3872,
       "inicio": "",
       "fim": ""
     },
     {
       "nome": "pl_ibov_nivel",
       "ok": true,
-      "detalhe": "P/L 12m 10.46x em 2026-11-10 (indice x redutor; cobertura 98.5% do peso); serie por papel 2011-04-04..2026-11-11, ultimo 10.51x; numerador por papel x B3: +0.12%; excluidas 1 (0.1% do peso)",
-      "obs": 3694,
+      "detalhe": "P/L 12m 10.50x em 2026-11-11 (indice x redutor; cobertura 98.5% do peso); serie por papel 2011-04-04..2026-11-12, ultimo 10.44x; numerador por papel x B3: +0.00%; excluidas 1 (0.1% do peso)",
+      "obs": 3695,
       "inicio": "",
       "fim": ""
     }
@@ -106,28 +106,28 @@
       "fonte": "eps_spx",
       "ultima_observacao": "2026-06-01",
       "vigente_ate": "2026-12-28",
-      "defasagem_dias": 163,
+      "defasagem_dias": 164,
       "vencida": false
     },
     {
       "fonte": "cape_shiller",
       "ultima_observacao": "2026-09-01",
       "vigente_ate": "2026-12-30",
-      "defasagem_dias": 71,
+      "defasagem_dias": 72,
       "vencida": false
     },
     {
       "fonte": "ust10",
       "ultima_observacao": "2026-11-10",
       "vigente_ate": "2026-11-20",
-      "defasagem_dias": 1,
+      "defasagem_dias": 2,
       "vencida": false
     },
     {
       "fonte": "tips10",
       "ultima_observacao": "2026-11-10",
       "vigente_ate": "2026-11-20",
-      "defasagem_dias": 1,
+      "defasagem_dias": 2,
       "vencida": false
     }
   ],
@@ -180,8 +180,8 @@
   "dfp_ausentes": [],
   "historico_longo": {
     "pe": {
-      "atual": 25.82,
-      "percentil": 93.0,
+      "atual": 25.76,
+      "percentil": 92.9,
       "mediana": 15.08,
       "media": 16.22,
       "p10": 9.21,
@@ -191,8 +191,8 @@
       "inicio": "1871-01-01",
       "fim": "2026-06-01",
       "n": 1866,
-      "acima_do_atual": 130,
-      "data_atual": "2026-11-11"
+      "acima_do_atual": 132,
+      "data_atual": "2026-11-12"
     },
     "cape": {
       "atual": 40.58,
@@ -207,11 +207,11 @@
       "fim": "2026-09-01",
       "n": 1749,
       "acima_do_atual": 20,
-      "data_atual": "2026-11-11"
+      "data_atual": "2026-11-12"
     },
     "premio_cape": {
       "atual": -0.32,
-      "percentil": 0.4,
+      "percentil": 0.5,
       "mediana": 3.3,
       "media": 2.96,
       "p10": 0.78,
@@ -219,31 +219,31 @@
       "maximo": 5.64,
       "data_maximo": "2012-11-08",
       "inicio": "2010-01-04",
-      "fim": "2026-11-11",
-      "n": 4241,
+      "fim": "2026-11-12",
+      "n": 4242,
       "acima_do_atual": 4222,
-      "data_atual": "2026-11-11"
+      "data_atual": "2026-11-12"
     }
   },
   "pl_ibov": {
-    "pl": 10.4561,
-    "valor_carteira": 2395410241554.1846,
-    "valor_coberto": 2359814445364.6895,
+    "pl": 10.496,
+    "valor_carteira": 2405334971800.0757,
+    "valor_coberto": 2368821986928.1504,
     "lucro_coberto": 225687409028.9402,
-    "cobertura_pct": 98.514,
-    "data": "2026-11-10",
-    "data_carteira": "2026-11-11",
-    "indice": 171337.0,
-    "redutor": 13980694.43000744,
+    "cobertura_pct": 98.482,
+    "data": "2026-11-11",
+    "data_carteira": "2026-11-12",
+    "indice": 172060.0,
+    "redutor": 13979629.03522071,
     "serie_inicio": "2011-04-04",
-    "serie_fim": "2026-11-11",
-    "serie_ultimo": 10.513,
+    "serie_fim": "2026-11-12",
+    "serie_ultimo": 10.435,
     "papeis_sem_preco": [],
-    "checagem_numerador_pct": 0.12,
+    "checagem_numerador_pct": 0.0,
     "excluidas": [
       "VIVA3: f implausivel (q=123,861,677; acoes=81,668,477)"
     ],
-    "peso_excluido_pct": 0.092
+    "peso_excluido_pct": 0.094
   },
   "reparo_validade": {
     "eps_ttm": {
