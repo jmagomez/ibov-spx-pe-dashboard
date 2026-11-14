@@ -1,5 +1,5 @@
 {
-  "gerado_em_utc": "2026-11-13T19:10:08+00:00",
+  "gerado_em_utc": "2026-11-14T17:38:08+00:00",
   "estagios": [
     {
       "nome": "precos_spx",
@@ -28,10 +28,10 @@
     {
       "nome": "juros_fred",
       "ok": true,
-      "detalhe": "Treasury 10a (nominal) e TIPS 10a (real) -- fonte: Tesouro dos EUA (home.treasury.gov); ultimo: UST 5.10% | TIPS 2.86% em 2026-11-12",
-      "obs": 4218,
+      "detalhe": "Treasury 10a (nominal) e TIPS 10a (real) -- fonte: Tesouro dos EUA (home.treasury.gov); ultimo: UST 5.15% | TIPS 2.91% em 2026-11-13",
+      "obs": 4219,
       "inicio": "2010-01-04",
-      "fim": "2026-11-12"
+      "fim": "2026-11-13"
     },
     {
       "nome": "historia_longa_shiller",
@@ -69,7 +69,7 @@
       "nome": "cadastro_b3",
       "ok": true,
       "detalhe": "ponte codigo de negociacao -> CNPJ",
-      "obs": 3536,
+      "obs": 3535,
       "inicio": "",
       "fim": ""
     },
@@ -84,7 +84,7 @@
     {
       "nome": "pe_ibov",
       "ok": true,
-      "detalhe": "cobertura da carteira 100.0%; 4033 linhas de lucro de 74 companhias; exigido >= 80% do PESO em cada data (coberto: min 86.4%, mediana 96.3%); indicador normalizado (base 100), NAO e P/E em nivel -- ver METODOLOGIA.md secao 4",
+      "detalhe": "cobertura da carteira 100.0%; 4033 linhas de lucro de 74 companhias; exigido >= 80% do PESO em cada data (coberto: min 86.4%, mediana 96.2%); indicador normalizado (base 100), NAO e P/E em nivel -- ver METODOLOGIA.md secao 4",
       "obs": 3873,
       "inicio": "",
       "fim": ""
@@ -92,7 +92,7 @@
     {
       "nome": "pl_ibov_nivel",
       "ok": true,
-      "detalhe": "P/L 12m 10.45x em 2026-11-12 (indice x redutor; cobertura 98.5% do peso); serie por papel 2011-04-04..2026-11-13, ultimo 10.50x; numerador por papel x B3: +0.00%; excluidas 1 (0.1% do peso)",
+      "detalhe": "P/L 12m 10.52x em 2026-11-13 (indice x redutor; cobertura 98.5% do peso); serie por papel 2011-04-04..2026-11-13, ultimo 10.52x; numerador por papel x B3: +0.01%; excluidas 1 (0.1% do peso)",
       "obs": 3696,
       "inicio": "",
       "fim": ""
@@ -118,16 +118,16 @@
     },
     {
       "fonte": "ust10",
-      "ultima_observacao": "2026-11-12",
-      "vigente_ate": "2026-11-22",
-      "defasagem_dias": 1,
+      "ultima_observacao": "2026-11-13",
+      "vigente_ate": "2026-11-23",
+      "defasagem_dias": 0,
       "vencida": false
     },
     {
       "fonte": "tips10",
-      "ultima_observacao": "2026-11-12",
-      "vigente_ate": "2026-11-22",
-      "defasagem_dias": 1,
+      "ultima_observacao": "2026-11-13",
+      "vigente_ate": "2026-11-23",
+      "defasagem_dias": 0,
       "vencida": false
     }
   ],
@@ -180,7 +180,7 @@
   "dfp_ausentes": [],
   "historico_longo": {
     "pe": {
-      "atual": 25.59,
+      "atual": 25.6,
       "percentil": 92.9,
       "mediana": 15.08,
       "media": 16.22,
@@ -210,8 +210,8 @@
       "data_atual": "2026-11-13"
     },
     "premio_cape": {
-      "atual": -0.4,
-      "percentil": 0.3,
+      "atual": -0.45,
+      "percentil": 0.2,
       "mediana": 3.3,
       "media": 2.96,
       "p10": 0.78,
@@ -221,29 +221,29 @@
       "inicio": "2010-01-04",
       "fim": "2026-11-13",
       "n": 4243,
-      "acima_do_atual": 4229,
+      "acima_do_atual": 4234,
       "data_atual": "2026-11-13"
     }
   },
   "pl_ibov": {
-    "pl": 10.4524,
-    "valor_carteira": 2395045964830.153,
-    "valor_coberto": 2358976572599.81,
+    "pl": 10.521,
+    "valor_carteira": 2410794457636.4893,
+    "valor_coberto": 2374463785159.908,
     "lucro_coberto": 225687409028.9402,
-    "cobertura_pct": 98.494,
-    "data": "2026-11-12",
-    "data_carteira": "2026-11-13",
-    "indice": 171324.0,
-    "redutor": 13979629.03522071,
+    "cobertura_pct": 98.493,
+    "data": "2026-11-13",
+    "data_carteira": "2026-11-16",
+    "indice": 172458.0,
+    "redutor": 13979023.63263223,
     "serie_inicio": "2011-04-04",
     "serie_fim": "2026-11-13",
-    "serie_ultimo": 10.498,
+    "serie_ultimo": 10.522,
     "papeis_sem_preco": [],
-    "checagem_numerador_pct": 0.0,
+    "checagem_numerador_pct": 0.01,
     "excluidas": [
       "VIVA3: f implausivel (q=123,861,677; acoes=81,668,477)"
     ],
-    "peso_excluido_pct": 0.089
+    "peso_excluido_pct": 0.087
   },
   "reparo_validade": {
     "eps_ttm": {
