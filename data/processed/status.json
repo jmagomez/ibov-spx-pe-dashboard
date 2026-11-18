@@ -1,19 +1,19 @@
 {
-  "gerado_em_utc": "2026-11-17T20:26:07+00:00",
+  "gerado_em_utc": "2026-11-18T19:55:35+00:00",
   "estagios": [
     {
       "nome": "precos_spx",
       "ok": true,
-      "detalhe": "provedor: yfinance; horizonte: 16.9 anos (4245 pregoes)",
-      "obs": 4245,
+      "detalhe": "provedor: yfinance; horizonte: 16.9 anos (4246 pregoes)",
+      "obs": 4246,
       "inicio": "2010-01-04",
-      "fim": "2026-11-17"
+      "fim": "2026-11-18"
     },
     {
       "nome": "eps_spx",
       "ok": true,
       "detalhe": "fonte: planilha Shiller (coluna E, LPA 12m mensal) -- S&P DJI indisponivel; espelho: ...3/downloads/70fec4f5-727f-4e53-b5f1-179af109c5fa/ie_data.xls; dado ate 2026-06-01",
-      "obs": 4245,
+      "obs": 4246,
       "inicio": "",
       "fim": ""
     },
@@ -28,10 +28,10 @@
     {
       "nome": "juros_fred",
       "ok": true,
-      "detalhe": "Treasury 10a (nominal) e TIPS 10a (real) -- fonte: Tesouro dos EUA (home.treasury.gov); ultimo: UST 5.12% | TIPS 2.92% em 2026-11-16",
-      "obs": 4220,
+      "detalhe": "Treasury 10a (nominal) e TIPS 10a (real) -- fonte: Tesouro dos EUA (home.treasury.gov); ultimo: UST 5.10% | TIPS 2.89% em 2026-11-17",
+      "obs": 4221,
       "inicio": "2010-01-04",
-      "fim": "2026-11-16"
+      "fim": "2026-11-17"
     },
     {
       "nome": "historia_longa_shiller",
@@ -44,10 +44,10 @@
     {
       "nome": "precos_ibov",
       "ok": true,
-      "detalhe": "provedor: yfinance; horizonte: 16.9 anos (4184 pregoes)",
-      "obs": 4184,
+      "detalhe": "provedor: yfinance; horizonte: 16.9 anos (4185 pregoes)",
+      "obs": 4185,
       "inicio": "2010-01-04",
-      "fim": "2026-11-17"
+      "fim": "2026-11-18"
     },
     {
       "nome": "composicao_ibov_b3",
@@ -84,16 +84,16 @@
     {
       "nome": "pe_ibov",
       "ok": true,
-      "detalhe": "cobertura da carteira 100.0%; 4071 linhas de lucro de 74 companhias; exigido >= 80% do PESO em cada data (coberto: min 86.2%, mediana 96.2%); indicador normalizado (base 100), NAO e P/E em nivel -- ver METODOLOGIA.md secao 4",
-      "obs": 3875,
+      "detalhe": "cobertura da carteira 100.0%; 4071 linhas de lucro de 74 companhias; exigido >= 80% do PESO em cada data (coberto: min 86.2%, mediana 96.1%); indicador normalizado (base 100), NAO e P/E em nivel -- ver METODOLOGIA.md secao 4",
+      "obs": 3876,
       "inicio": "",
       "fim": ""
     },
     {
       "nome": "pl_ibov_nivel",
       "ok": true,
-      "detalhe": "P/L 12m 10.33x em 2026-11-16 (indice x redutor; cobertura 98.6% do peso); serie por papel 2011-04-04..2026-11-17, ultimo 10.34x; numerador por papel x B3: +0.01%",
-      "obs": 3698,
+      "detalhe": "P/L 12m 10.36x em 2026-11-17 (indice x redutor; cobertura 98.5% do peso); serie por papel 2011-04-04..2026-11-18, ultimo 10.22x; numerador por papel x B3: -0.00%",
+      "obs": 3699,
       "inicio": "",
       "fim": ""
     }
@@ -106,27 +106,27 @@
       "fonte": "eps_spx",
       "ultima_observacao": "2026-06-01",
       "vigente_ate": "2026-12-28",
-      "defasagem_dias": 169,
+      "defasagem_dias": 170,
       "vencida": false
     },
     {
       "fonte": "cape_shiller",
       "ultima_observacao": "2026-09-01",
       "vigente_ate": "2026-12-30",
-      "defasagem_dias": 77,
+      "defasagem_dias": 78,
       "vencida": false
     },
     {
       "fonte": "ust10",
-      "ultima_observacao": "2026-11-16",
-      "vigente_ate": "2026-11-26",
+      "ultima_observacao": "2026-11-17",
+      "vigente_ate": "2026-11-27",
       "defasagem_dias": 1,
       "vencida": false
     },
     {
       "fonte": "tips10",
-      "ultima_observacao": "2026-11-16",
-      "vigente_ate": "2026-11-26",
+      "ultima_observacao": "2026-11-17",
+      "vigente_ate": "2026-11-27",
       "defasagem_dias": 1,
       "vencida": false
     }
@@ -180,7 +180,7 @@
   "dfp_ausentes": [],
   "historico_longo": {
     "pe": {
-      "atual": 24.79,
+      "atual": 24.78,
       "percentil": 92.1,
       "mediana": 15.08,
       "media": 16.22,
@@ -192,7 +192,7 @@
       "fim": "2026-06-01",
       "n": 1866,
       "acima_do_atual": 147,
-      "data_atual": "2026-11-17"
+      "data_atual": "2026-11-18"
     },
     "cape": {
       "atual": 40.58,
@@ -207,11 +207,11 @@
       "fim": "2026-09-01",
       "n": 1749,
       "acima_do_atual": 20,
-      "data_atual": "2026-11-17"
+      "data_atual": "2026-11-18"
     },
     "premio_cape": {
-      "atual": -0.46,
-      "percentil": 0.1,
+      "atual": -0.43,
+      "percentil": 0.3,
       "mediana": 3.3,
       "media": 2.96,
       "p10": 0.78,
@@ -219,27 +219,27 @@
       "maximo": 5.64,
       "data_maximo": "2012-11-08",
       "inicio": "2010-01-04",
-      "fim": "2026-11-17",
-      "n": 4245,
-      "acima_do_atual": 4239,
-      "data_atual": "2026-11-17"
+      "fim": "2026-11-18",
+      "n": 4246,
+      "acima_do_atual": 4233,
+      "data_atual": "2026-11-18"
     }
   },
   "pl_ibov": {
-    "pl": 10.3316,
-    "valor_carteira": 2366348036888.621,
-    "valor_coberto": 2332532923441.4824,
+    "pl": 10.3599,
+    "valor_carteira": 2373644375677.4565,
+    "valor_coberto": 2338917958461.295,
     "lucro_coberto": 225767251438.9697,
-    "cobertura_pct": 98.571,
-    "data": "2026-11-16",
-    "data_carteira": "2026-11-17",
-    "indice": 169295.0,
+    "cobertura_pct": 98.537,
+    "data": "2026-11-17",
+    "data_carteira": "2026-11-18",
+    "indice": 169817.0,
     "redutor": 13977660.51501002,
     "serie_inicio": "2011-04-04",
-    "serie_fim": "2026-11-17",
-    "serie_ultimo": 10.344,
+    "serie_fim": "2026-11-18",
+    "serie_ultimo": 10.222,
     "papeis_sem_preco": [],
-    "checagem_numerador_pct": 0.01,
+    "checagem_numerador_pct": -0.0,
     "excluidas": [],
     "peso_excluido_pct": 0.0
   },
