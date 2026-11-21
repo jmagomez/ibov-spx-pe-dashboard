@@ -1,5 +1,5 @@
 {
-  "gerado_em_utc": "2026-11-20T19:35:09+00:00",
+  "gerado_em_utc": "2026-11-21T18:39:44+00:00",
   "estagios": [
     {
       "nome": "precos_spx",
@@ -28,15 +28,15 @@
     {
       "nome": "juros_fred",
       "ok": true,
-      "detalhe": "Treasury 10a (nominal) e TIPS 10a (real) -- fonte: Tesouro dos EUA (home.treasury.gov); ultimo: UST 5.04% | TIPS 2.88% em 2026-11-19",
-      "obs": 4223,
+      "detalhe": "Treasury 10a (nominal) e TIPS 10a (real) -- fonte: Tesouro dos EUA (home.treasury.gov); ultimo: UST 4.92% | TIPS 2.77% em 2026-11-20",
+      "obs": 4224,
       "inicio": "2010-01-04",
-      "fim": "2026-11-19"
+      "fim": "2026-11-20"
     },
     {
       "nome": "historia_longa_shiller",
       "ok": true,
-      "detalhe": "P/E 23.5 no percentil 90 desde 1871 (mediana 15.1); CAPE 40.6 no percentil 99 desde 1881 (max 44.2 em 1999-12)",
+      "detalhe": "P/E 23.4 no percentil 89 desde 1871 (mediana 15.1); CAPE 40.6 no percentil 99 desde 1881 (max 44.2 em 1999-12)",
       "obs": 1866,
       "inicio": "1871-01-01",
       "fim": "2026-06-01"
@@ -118,16 +118,16 @@
     },
     {
       "fonte": "ust10",
-      "ultima_observacao": "2026-11-19",
-      "vigente_ate": "2026-11-29",
-      "defasagem_dias": 1,
+      "ultima_observacao": "2026-11-20",
+      "vigente_ate": "2026-11-30",
+      "defasagem_dias": 0,
       "vencida": false
     },
     {
       "fonte": "tips10",
-      "ultima_observacao": "2026-11-19",
-      "vigente_ate": "2026-11-29",
-      "defasagem_dias": 1,
+      "ultima_observacao": "2026-11-20",
+      "vigente_ate": "2026-11-30",
+      "defasagem_dias": 0,
       "vencida": false
     }
   ],
@@ -180,8 +180,8 @@
   "dfp_ausentes": [],
   "historico_longo": {
     "pe": {
-      "atual": 23.53,
-      "percentil": 89.7,
+      "atual": 23.39,
+      "percentil": 89.4,
       "mediana": 15.08,
       "media": 16.22,
       "p10": 9.21,
@@ -191,7 +191,7 @@
       "inicio": "1871-01-01",
       "fim": "2026-06-01",
       "n": 1866,
-      "acima_do_atual": 192,
+      "acima_do_atual": 197,
       "data_atual": "2026-11-20"
     },
     "cape": {
@@ -210,8 +210,8 @@
       "data_atual": "2026-11-20"
     },
     "premio_cape": {
-      "atual": -0.42,
-      "percentil": 0.4,
+      "atual": -0.31,
+      "percentil": 0.6,
       "mediana": 3.3,
       "media": 2.96,
       "p10": 0.78,
@@ -221,7 +221,7 @@
       "inicio": "2010-01-04",
       "fim": "2026-11-20",
       "n": 4248,
-      "acima_do_atual": 4231,
+      "acima_do_atual": 4221,
       "data_atual": "2026-11-20"
     }
   },
