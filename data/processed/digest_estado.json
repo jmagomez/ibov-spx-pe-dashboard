@@ -1,11 +1,7 @@
 {
-  "referencia_iso": "2026-11-20",
+  "referencia_iso": "2026-11-24",
   "estagios": {
-    "precos_spx": true,
-    "eps_spx": true,
-    "cape_shiller": true,
-    "juros_fred": true,
-    "historia_longa_shiller": true,
+    "precos_spx": false,
     "precos_ibov": true,
     "composicao_ibov_b3": true,
     "lucros_cvm": true,
@@ -19,5 +15,5 @@
   "faixa_ibov": "intermediaria",
   "sinal_premio_cape": "negativo",
   "series_vazias": [],
-  "escrito_em_utc": "2026-11-21T18:42:54+00:00"
+  "escrito_em_utc": "2026-11-24T21:59:27+00:00"
 }
