@@ -1,5 +1,5 @@
 {
-  "gerado_em_utc": "2026-11-25T21:00:25+00:00",
+  "gerado_em_utc": "2026-11-26T20:53:22+00:00",
   "estagios": [
     {
       "nome": "precos_spx",
@@ -28,10 +28,10 @@
     {
       "nome": "juros_fred",
       "ok": true,
-      "detalhe": "Treasury 10a (nominal) e TIPS 10a (real) -- fonte: Tesouro dos EUA (home.treasury.gov); ultimo: UST 4.91% | TIPS 2.79% em 2026-11-24",
-      "obs": 4226,
+      "detalhe": "Treasury 10a (nominal) e TIPS 10a (real) -- fonte: Tesouro dos EUA (home.treasury.gov); ultimo: UST 4.85% | TIPS 2.73% em 2026-11-25",
+      "obs": 4227,
       "inicio": "2010-01-04",
-      "fim": "2026-11-24"
+      "fim": "2026-11-25"
     },
     {
       "nome": "historia_longa_shiller",
@@ -44,10 +44,10 @@
     {
       "nome": "precos_ibov",
       "ok": true,
-      "detalhe": "provedor: yfinance; horizonte: 16.9 anos (4189 pregoes)",
-      "obs": 4189,
+      "detalhe": "provedor: yfinance; horizonte: 16.9 anos (4190 pregoes)",
+      "obs": 4190,
       "inicio": "2010-01-04",
-      "fim": "2026-11-25"
+      "fim": "2026-11-26"
     },
     {
       "nome": "composicao_ibov_b3",
@@ -84,16 +84,16 @@
     {
       "nome": "pe_ibov",
       "ok": true,
-      "detalhe": "cobertura da carteira 100.0%; 4071 linhas de lucro de 74 companhias; exigido >= 80% do PESO em cada data (coberto: min 85.8%, mediana 96.0%); indicador normalizado (base 100), NAO e P/E em nivel -- ver METODOLOGIA.md secao 4",
-      "obs": 3880,
+      "detalhe": "cobertura da carteira 100.0%; 4071 linhas de lucro de 74 companhias; exigido >= 80% do PESO em cada data (coberto: min 85.7%, mediana 96.0%); indicador normalizado (base 100), NAO e P/E em nivel -- ver METODOLOGIA.md secao 4",
+      "obs": 3881,
       "inicio": "",
       "fim": ""
     },
     {
       "nome": "pl_ibov_nivel",
       "ok": true,
-      "detalhe": "P/L 12m 10.00x em 2026-11-24 (indice x redutor; cobertura 98.5% do peso); serie por papel 2011-04-04..2026-11-25, ultimo 10.16x; numerador por papel x B3: -0.00%",
-      "obs": 3703,
+      "detalhe": "P/L 12m 10.16x em 2026-11-25 (indice x redutor; cobertura 98.5% do peso); serie por papel 2011-04-04..2026-11-26, ultimo 10.69x; numerador por papel x B3: +0.00%",
+      "obs": 3704,
       "inicio": "",
       "fim": ""
     }
@@ -118,16 +118,16 @@
     },
     {
       "fonte": "ust10",
-      "ultima_observacao": "2026-11-24",
-      "vigente_ate": "2026-12-04",
-      "defasagem_dias": 1,
+      "ultima_observacao": "2026-11-25",
+      "vigente_ate": "2026-12-05",
+      "defasagem_dias": 0,
       "vencida": false
     },
     {
       "fonte": "tips10",
-      "ultima_observacao": "2026-11-24",
-      "vigente_ate": "2026-12-04",
-      "defasagem_dias": 1,
+      "ultima_observacao": "2026-11-25",
+      "vigente_ate": "2026-12-05",
+      "defasagem_dias": 0,
       "vencida": false
     }
   ],
@@ -210,8 +210,8 @@
       "data_atual": "2026-11-25"
     },
     "premio_cape": {
-      "atual": -0.33,
-      "percentil": 0.6,
+      "atual": -0.27,
+      "percentil": 0.8,
       "mediana": 3.3,
       "media": 2.95,
       "p10": 0.78,
@@ -221,25 +221,25 @@
       "inicio": "2010-01-04",
       "fim": "2026-11-25",
       "n": 4251,
-      "acima_do_atual": 4226,
+      "acima_do_atual": 4218,
       "data_atual": "2026-11-25"
     }
   },
   "pl_ibov": {
-    "pl": 10.004,
-    "valor_carteira": 2292393181911.3525,
-    "valor_coberto": 2258580382478.1597,
+    "pl": 10.1626,
+    "valor_carteira": 2328574503574.9907,
+    "valor_coberto": 2294391029862.5107,
     "lucro_coberto": 225767251438.9697,
-    "cobertura_pct": 98.525,
-    "data": "2026-11-24",
-    "data_carteira": "2026-11-25",
-    "indice": 164090.0,
-    "redutor": 13970340.55647116,
+    "cobertura_pct": 98.532,
+    "data": "2026-11-25",
+    "data_carteira": "2026-11-26",
+    "indice": 166685.0,
+    "redutor": 13969910.3313135,
     "serie_inicio": "2011-04-04",
-    "serie_fim": "2026-11-25",
-    "serie_ultimo": 10.164,
+    "serie_fim": "2026-11-26",
+    "serie_ultimo": 10.688,
     "papeis_sem_preco": [],
-    "checagem_numerador_pct": -0.0,
+    "checagem_numerador_pct": 0.0,
     "excluidas": [],
     "peso_excluido_pct": 0.0
   },

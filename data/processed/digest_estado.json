@@ -1,5 +1,5 @@
 {
-  "referencia_iso": "2026-11-25",
+  "referencia_iso": "2026-11-26",
   "estagios": {
     "precos_spx": true,
     "eps_spx": true,
@@ -19,5 +19,5 @@
   "faixa_ibov": "intermediaria",
   "sinal_premio_cape": "negativo",
   "series_vazias": [],
-  "escrito_em_utc": "2026-11-25T21:03:45+00:00"
+  "escrito_em_utc": "2026-11-26T20:56:40+00:00"
 }
